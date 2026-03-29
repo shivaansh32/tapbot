@@ -1,0 +1,3234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rain USDT Admin</title>
+    <script>
+    // Global variables for withdrawal options management
+    let withdrawOptionsData = [];
+    let editingWithdrawOptionId = null;
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        .glass { background: white; border: 1px solid #e5e7eb; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+        .status-pending { background-color: #d1fae5; color: #065f46; }
+        .status-paid { background-color: #d1fae5; color: #059669; }
+        .status-rejected { background-color: #fee2e2; color: #dc2626; }
+        
+        /* Modal Animation */
+        .modal-enter { opacity: 0; transform: scale(0.9); }
+        .modal-enter-active { opacity: 1; transform: scale(1); transition: opacity 300ms, transform 300ms; }
+        
+        /* Mobile Sidebar - Full height when fixed */
+        @media (max-width: 767px) {
+            #sidebar {
+                top: 0;
+                left: 0;
+                height: 100vh;
+                box-shadow: 4px 0 15px rgba(0, 0, 0, 0.1);
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- LOGIN SCREEN -->
+    <div id="login-screen" class="fixed inset-0 z-50 bg-gray-900 flex items-center justify-center">
+        <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md text-center">
+            <div class="mb-6">
+                <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-shield-alt text-blue-600 text-3xl"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-800">Admin Login</h2>
+                <p class="text-gray-500 text-sm mt-1">Backend Admin Login</p>
+            </div>
+            
+            <!-- Login Form -->
+            <div id="login-form">
+                <input type="email" id="admin-email" placeholder="Admin Email" 
+                    class="w-full border border-gray-300 rounded-lg p-3 text-lg mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <input type="password" id="admin-password" placeholder="Password" 
+                    class="w-full border border-gray-300 rounded-lg p-3 text-lg mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <button onclick="adminLogin()" id="login-btn" 
+                    class="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition flex items-center justify-center space-x-2">
+                    <span>Login</span>
+                </button>
+            </div>
+            
+            <!-- Register Form (hidden by default) -->
+            <div id="register-form" class="hidden">
+                <input type="email" id="register-email" placeholder="Email" 
+                    class="w-full border border-gray-300 rounded-lg p-3 text-lg mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <input type="password" id="register-password" placeholder="Password (min 6 chars)" 
+                    class="w-full border border-gray-300 rounded-lg p-3 text-lg mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <input type="password" id="register-confirm" placeholder="Confirm Password" 
+                    class="w-full border border-gray-300 rounded-lg p-3 text-lg mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <button onclick="adminRegister()" id="register-btn" 
+                    class="w-full bg-green-600 text-white font-bold py-3 rounded-lg hover:bg-green-700 transition">
+                    Create Account
+                </button>
+            </div>
+            
+            <p id="login-error" class="text-red-500 mt-3 hidden"></p>
+            <p id="login-success" class="text-green-500 mt-3 hidden"></p>
+            
+            <div class="mt-4 text-sm text-gray-500">
+                <span id="toggle-mode-text">New admin?</span>
+                <button onclick="toggleAuthMode()" class="text-blue-600 hover:underline font-medium" id="toggle-mode-btn">
+                    Create Account
+                </button>
+            </div>
+            
+            <div class="mt-4 pt-4 border-t border-gray-200">
+                <p class="text-xs text-gray-400">First time? Create an account, then ask existing admin to grant you access.</p>
+            </div>
+        </div>
+    </div>
+
+
+
+    <!-- USER INFO POPUP MODAL -->
+    <div id="user-info-modal" class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center hidden" onclick="if(event.target===this)closeUserInfoModal()">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg relative max-h-[90vh] overflow-hidden flex flex-col">
+            <div class="flex items-center justify-between p-5 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-t-2xl">
+                <h3 class="text-lg font-bold text-white flex items-center">
+                    <i class="fas fa-user-circle mr-2"></i>User Details
+                </h3>
+                <button onclick="closeUserInfoModal()" class="text-white/80 hover:text-white text-xl">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div id="user-info-content" class="p-5 overflow-y-auto flex-1">
+                <div class="flex items-center justify-center py-10">
+                    <i class="fas fa-spinner fa-spin text-3xl text-blue-500"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- EDIT USER MODAL -->
+    <div id="edit-user-modal" class="fixed inset-0 z-40 bg-black/50 flex items-center justify-center hidden">
+        <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-sm relative">
+            <button onclick="closeEditUserModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+            <h3 class="text-xl font-bold text-gray-800 mb-4">Edit User</h3>
+            
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">User Name</label>
+                <input type="text" id="edit-user-name" disabled class="w-full bg-gray-100 border border-gray-300 rounded p-2 text-gray-600 cursor-not-allowed">
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Telegram ID</label>
+                <input type="text" id="edit-user-id" disabled class="w-full bg-gray-100 border border-gray-300 rounded p-2 text-gray-600 cursor-not-allowed">
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Total Coin Balance</label>
+                <input type="number" id="edit-user-score" class="w-full border border-gray-300 rounded p-2 focus:outline-none focus:border-blue-500 text-lg font-bold text-gray-800">
+            </div>
+
+            <button onclick="saveUserChanges()" id="save-user-btn" class="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition">
+                Save Changes
+            </button>
+        </div>
+    </div>
+
+    <!-- SEND MESSAGE TO USER MODAL -->
+    <div id="send-message-modal" class="fixed inset-0 z-40 bg-black/50 flex items-center justify-center hidden">
+        <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-md relative max-h-[90vh] overflow-y-auto">
+            <button onclick="closeMessageModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+            <h3 class="text-xl font-bold text-gray-800 mb-4">
+                <i class="fas fa-paper-plane text-blue-600 mr-2"></i>Send Message to User
+            </h3>
+            
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">User Name</label>
+                <input type="text" id="msg-user-name" disabled class="w-full bg-gray-100 border border-gray-300 rounded p-2 text-gray-600 cursor-not-allowed">
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Telegram ID</label>
+                <input type="text" id="msg-user-id" disabled class="w-full bg-gray-100 border border-gray-300 rounded p-2 text-gray-600 cursor-not-allowed">
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Message <span class="text-red-500">*</span></label>
+                <textarea id="msg-text" placeholder="Enter your message here..." 
+                    class="w-full border border-gray-300 rounded p-3 focus:outline-none focus:border-blue-500 text-sm resize-none"
+                    rows="5" maxlength="4096"></textarea>
+                <p class="text-xs text-gray-400 mt-1">Max 4096 characters</p>
+            </div>
+
+            <div class="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <p class="text-xs text-blue-700"><i class="fas fa-info-circle mr-2"></i>Message will be sent via your referral bot. Make sure the referral bot token is configured in Settings.</p>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Inline Buttons (optional)</label>
+                <div id="msg-buttons-container" class="space-y-2 mb-2"></div>
+                <div class="flex space-x-2">
+                    <button type="button" onclick="addMsgButton()" class="px-3 py-2 bg-indigo-600 text-white rounded-lg text-sm">Add Button</button>
+                    <p class="text-xs text-gray-400 self-center">Add up to 3 inline buttons (label + url)</p>
+                </div>
+            </div>
+
+            <div id="msg-status" class="mb-4 text-sm min-h-[20px]"></div>
+
+            <div class="flex space-x-3">
+                <button onclick="closeMessageModal()" class="flex-1 bg-gray-200 text-gray-700 font-bold py-3 rounded-lg hover:bg-gray-300 transition">
+                    Cancel
+                </button>
+                <button onclick="sendMessageToUser()" id="send-msg-btn" class="flex-1 bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition">
+                    <i class="fas fa-paper-plane mr-2"></i>Send Message
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- BROADCAST MESSAGE TO ALL USERS MODAL -->
+    <div id="broadcast-message-modal" class="fixed inset-0 z-40 bg-black/50 flex items-center justify-center hidden">
+        <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-md relative max-h-[90vh] overflow-y-auto">
+            <button onclick="closeBroadcastModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+            <h3 class="text-xl font-bold text-gray-800 mb-4">
+                <i class="fas fa-bullhorn text-purple-600 mr-2"></i>Broadcast Message to All Users
+            </h3>
+
+            <div class="mb-4 p-3 bg-yellow-50 rounded-lg border border-yellow-300">
+                <p class="text-xs text-yellow-700"><i class="fas fa-exclamation-triangle mr-2"></i>This will send a message to <strong>ALL</strong> users. Use with caution.</p>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Total Recipients</label>
+                <input type="text" id="broadcast-user-count" disabled class="w-full bg-gray-100 border border-gray-300 rounded p-2 text-gray-600 cursor-not-allowed font-bold">
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Message <span class="text-red-500">*</span></label>
+                <textarea id="broadcast-msg-text" placeholder="Enter your broadcast message here..." 
+                    class="w-full border border-gray-300 rounded p-3 focus:outline-none focus:border-blue-500 text-sm resize-none"
+                    rows="5" maxlength="4096"></textarea>
+                <p class="text-xs text-gray-400 mt-1">Supports HTML formatting. Max 4096 characters.</p>
+            </div>
+
+            <div class="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <p class="text-xs text-blue-700"><i class="fas fa-info-circle mr-2"></i>Messages are sent via the Telegram Bot API (referral bot token). Telegram rate-limits to ~30 messages/sec so a small delay is added between each message.</p>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Inline Buttons (optional)</label>
+                <div id="broadcast-buttons-container" class="space-y-2 mb-2"></div>
+                <div class="flex space-x-2">
+                    <button type="button" onclick="addBroadcastButton()" class="px-3 py-2 bg-indigo-600 text-white rounded-lg text-sm">Add Button</button>
+                    <p class="text-xs text-gray-400 self-center">Add up to 3 inline buttons (label + url)</p>
+                </div>
+            </div>
+            <div id="broadcast-progress" class="mb-4 hidden">
+                <div class="flex justify-between text-xs font-semibold text-gray-600 mb-1">
+                    <span id="broadcast-progress-text">Sending...</span>
+                    <span id="broadcast-progress-count">0 / 0</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-3">
+                    <div id="broadcast-progress-bar" class="bg-purple-600 h-3 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+                <p id="broadcast-fail-count" class="text-xs text-red-500 mt-1 hidden"></p>
+            </div>
+
+            <div id="broadcast-status" class="mb-4 text-sm min-h-[20px]"></div>
+
+            <div class="flex space-x-3">
+                <button onclick="closeBroadcastModal()" class="flex-1 bg-gray-200 text-gray-700 font-bold py-3 rounded-lg hover:bg-gray-300 transition">
+                    Cancel
+                </button>
+                <button onclick="sendBroadcastMessage()" id="broadcast-send-btn" class="flex-1 bg-purple-600 text-white font-bold py-3 rounded-lg hover:bg-purple-700 transition">
+                    <i class="fas fa-bullhorn mr-2"></i>Send to All
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ADD/EDIT TASK MODAL -->
+    <div id="task-modal" class="fixed inset-0 z-40 bg-black/50 flex items-center justify-center hidden">
+        <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-md relative max-h-[90vh] overflow-y-auto">
+            <button onclick="closeTaskModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+            <h3 class="text-xl font-bold text-gray-800 mb-4" id="task-modal-title">Add New Task</h3>
+            
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Task ID <span class="text-red-500">*</span></label>
+                <input type="text" id="task-id" class="w-full border border-gray-300 rounded p-2 focus:outline-none focus:border-blue-500" placeholder="e.g., join_channel_1">
+                <p class="text-xs text-gray-400 mt-1">Unique identifier (no spaces, use underscores)</p>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Title <span class="text-red-500">*</span></label>
+                <input type="text" id="task-title" class="w-full border border-gray-300 rounded p-2 focus:outline-none focus:border-blue-500" placeholder="e.g., Join Our Channel">
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Description</label>
+                <input type="text" id="task-description" class="w-full border border-gray-300 rounded p-2 focus:outline-none focus:border-blue-500" placeholder="e.g., Join our official Telegram channel">
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Reward (Coins) <span class="text-red-500">*</span></label>
+                <input type="number" id="task-reward" class="w-full border border-gray-300 rounded p-2 focus:outline-none focus:border-blue-500" placeholder="1000">
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Link <span class="text-red-500">*</span></label>
+                <input type="text" id="task-link" class="w-full border border-gray-300 rounded p-2 focus:outline-none focus:border-blue-500" placeholder="https://t.me/your_channel">
+                <p class="text-xs text-gray-400 mt-1">URL users will visit to complete the task</p>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Type</label>
+                <select id="task-type" class="w-full border border-gray-300 rounded p-2 focus:outline-none focus:border-blue-500">
+                    <option value="telegram_channel">Telegram Channel</option>
+                    <option value="telegram_group">Telegram Group</option>
+                    <option value="social">Social Media (X/Twitter)</option>
+                    <option value="website">Website Visit</option>
+                    <option value="other">Other</option>
+                </select>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Icon</label>
+                <select id="task-icon" class="w-full border border-gray-300 rounded p-2 focus:outline-none focus:border-blue-500">
+                    <option value="telegram">Telegram</option>
+                    <option value="twitter">X / Twitter</option>
+                    <option value="link">Link</option>
+                    <option value="youtube">YouTube</option>
+                    <option value="instagram">Instagram</option>
+                </select>
+            </div>
+
+            <div class="mb-6">
+                <label class="flex items-center space-x-2 cursor-pointer">
+                    <input type="checkbox" id="task-active" checked class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                    <span class="text-sm font-medium text-gray-700">Task is Active</span>
+                </label>
+                <p class="text-xs text-gray-400 mt-1">Inactive tasks won't show in the app</p>
+            </div>
+
+            <div class="flex space-x-3">
+                <button onclick="closeTaskModal()" class="flex-1 bg-gray-200 text-gray-700 font-bold py-3 rounded-lg hover:bg-gray-300 transition">
+                    Cancel
+                </button>
+                <button onclick="saveTask()" id="save-task-btn" class="flex-1 bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition">
+                    Save Task
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ADD/EDIT WITHDRAW OPTION MODAL -->
+    <div id="withdraw-option-modal" class="fixed inset-0 z-40 bg-black/50 flex items-center justify-center hidden">
+        <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-md relative">
+            <button onclick="closeWithdrawOptionModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+            <h3 class="text-xl font-bold text-gray-800 mb-4" id="withdraw-option-modal-title">Add Withdrawal Tier</h3>
+            
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Tier ID <span class="text-red-500">*</span></label>
+                <input type="text" id="wo-id" class="w-full border border-gray-300 rounded p-2 focus:outline-none focus:border-blue-500" placeholder="e.g., tier1">
+                <p class="text-xs text-gray-400 mt-1">Unique identifier (no spaces)</p>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Label</label>
+                <input type="text" id="wo-label" class="w-full border border-gray-300 rounded p-2 focus:outline-none focus:border-blue-500" placeholder="e.g., Starter, Basic, Premium">
+                <p class="text-xs text-gray-400 mt-1">Display name shown to users</p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Coins Required <span class="text-red-500">*</span></label>
+                    <input type="number" id="wo-coins" class="w-full border border-gray-300 rounded p-2 focus:outline-none focus:border-blue-500" placeholder="50000">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">USDT Amount <span class="text-red-500">*</span></label>
+                    <input type="number" step="0.01" id="wo-usdt" class="w-full border border-gray-300 rounded p-2 focus:outline-none focus:border-blue-500" placeholder="0.10">
+                </div>
+            </div>
+            <div class="mb-4 p-3 bg-gray-50 rounded-lg">
+                <p class="text-sm text-gray-600">
+                    <i class="fas fa-calculator text-blue-500 mr-2"></i>
+                    USDT Payout: <span id="wo-usdt-preview" class="font-bold text-green-600">0.00 USDT</span>
+                </p>
+            </div>
+
+            <div class="flex space-x-3">
+                <button onclick="closeWithdrawOptionModal()" class="flex-1 bg-gray-200 text-gray-700 font-bold py-3 rounded-lg hover:bg-gray-300 transition">
+                    Cancel
+                </button>
+                <button onclick="saveWithdrawOption()" id="save-wo-btn" class="flex-1 bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition">
+                    Save Tier
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN DASHBOARD (Hidden by default) -->
+    <div id="dashboard" class="hidden min-h-screen flex flex-col">
+        
+        <!-- Navbar -->
+        <nav class="bg-white shadow-sm border-b border-gray-200 px-4 md:px-6 py-4 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <!-- Hamburger Menu Button (Mobile Only) -->
+                <button onclick="toggleMobileMenu()" id="hamburger-btn" class="md:hidden p-2 rounded-lg hover:bg-gray-100 text-gray-600">
+                    <i class="fas fa-bars text-xl" id="hamburger-icon"></i>
+                </button>
+                <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-xl">R</div>
+                <h1 class="text-xl font-bold text-gray-800 hidden sm:block">Rain USDT Admin</h1>
+            </div>
+            <div class="flex items-center space-x-4">
+                <span id="db-status" class="text-xs font-mono text-gray-400 flex items-center hidden sm:flex">
+                    <span class="w-2 h-2 rounded-full bg-teal-400 mr-2"></span> Connecting...
+                </span>
+                <!-- Set Bot Config button removed -->
+                <button onclick="logout()" class="text-gray-500 hover:text-red-500 font-medium">Logout</button>
+            </div>
+        </nav>
+
+        <div class="flex flex-1 overflow-hidden">
+            <!-- Mobile Sidebar Overlay -->
+            <div id="mobile-overlay" class="fixed inset-0 bg-black/50 z-30 hidden md:hidden" onclick="closeMobileMenu()"></div>
+            
+            <!-- Sidebar (Desktop: always visible, Mobile: slide-in) -->
+            <aside id="sidebar" class="fixed md:relative w-64 h-full bg-white border-r border-gray-200 flex flex-col z-40 transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out">
+                <!-- Mobile Close Button -->
+                <div class="md:hidden flex justify-between items-center p-4 border-b border-gray-200">
+                    <span class="font-bold text-gray-800">Menu</span>
+                    <button onclick="closeMobileMenu()" class="p-2 rounded-lg hover:bg-gray-100 text-gray-600">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+                <nav class="flex-1 p-4 space-y-2">
+                    <button onclick="showTab('home'); closeMobileMenu();" id="nav-home" class="w-full text-left px-4 py-3 rounded-lg bg-blue-50 text-blue-700 font-medium flex items-center space-x-3">
+                        <i class="fas fa-home w-5"></i><span>Overview</span>
+                    </button>
+                    <button onclick="showTab('withdrawals'); closeMobileMenu();" id="nav-withdrawals" class="w-full text-left px-4 py-3 rounded-lg text-gray-600 hover:bg-gray-50 font-medium flex items-center space-x-3">
+                        <i class="fas fa-wallet w-5"></i><span>Withdrawals</span>
+                    </button>
+                    <button onclick="showTab('users'); closeMobileMenu();" id="nav-users" class="w-full text-left px-4 py-3 rounded-lg text-gray-600 hover:bg-gray-50 font-medium flex items-center space-x-3">
+                        <i class="fas fa-users w-5"></i><span>Users</span>
+                    </button>
+                    <button onclick="showTab('tasks'); closeMobileMenu();" id="nav-tasks" class="w-full text-left px-4 py-3 rounded-lg text-gray-600 hover:bg-gray-50 font-medium flex items-center space-x-3">
+                        <i class="fas fa-clipboard-list w-5"></i><span>Tasks</span>
+                    </button>
+                    <button onclick="showTab('notification'); closeMobileMenu();" id="nav-notification" class="w-full text-left px-4 py-3 rounded-lg text-gray-600 hover:bg-gray-50 font-medium flex items-center space-x-3">
+                        <i class="fas fa-bell w-5"></i><span>Notification</span>
+                    </button>
+                    <button onclick="showTab('featured-apps'); closeMobileMenu();" id="nav-featured-apps" class="w-full text-left px-4 py-3 rounded-lg text-gray-600 hover:bg-gray-50 font-medium flex items-center space-x-3">
+                        <i class="fas fa-rocket w-5"></i><span>Featured Apps</span>
+                    </button>
+                    <button onclick="showTab('settings'); closeMobileMenu();" id="nav-settings" class="w-full text-left px-4 py-3 rounded-lg text-gray-600 hover:bg-gray-50 font-medium flex items-center space-x-3">
+                        <i class="fas fa-cog w-5"></i><span>Settings</span>
+                    </button>
+                </nav>
+            </aside>
+
+            <!-- Content Area -->
+            <main class="flex-1 overflow-y-auto p-6">
+                
+                <!-- HOME TAB -->
+                <div id="tab-home" class="space-y-6">
+                    <!-- Stats Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <p class="text-sm text-gray-500 font-medium">Total Users</p>
+                                    <h3 class="text-3xl font-bold text-gray-800 mt-1" id="stat-total-users">...</h3>
+                                </div>
+                                <div class="p-3 bg-blue-100 text-blue-600 rounded-lg">
+                                    <i class="fas fa-users"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <p class="text-sm text-gray-500 font-medium">Pending Withdrawals</p>
+                                    <h3 class="text-3xl font-bold text-teal-600 mt-1" id="stat-pending-wd">...</h3>
+                                </div>
+                                <div class="p-3 bg-teal-100 text-teal-600 rounded-lg">
+                                    <i class="fas fa-clock"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <p class="text-sm text-gray-500 font-medium">Total Paid (USDT)</p>
+                                    <h3 class="text-3xl font-bold text-green-600 mt-1" id="stat-total-paid">...</h3>
+                                </div>
+                                <div class="p-3 bg-green-100 text-green-600 rounded-lg">
+                                    <i class="fas fa-dollar-sign"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- WITHDRAWALS TAB -->
+                <div id="tab-withdrawals" class="hidden space-y-6">
+                    <div class="flex justify-between items-center">
+                        <h2 class="text-2xl font-bold text-gray-800">Withdrawal Requests</h2>
+                        <button onclick="loadWithdrawals()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"><i class="fas fa-sync-alt mr-2"></i>Refresh</button>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left">
+                                <thead class="bg-gray-50 border-b border-gray-200">
+                                    <tr>
+                                        <th class="px-6 py-3 text-xs font-medium text-gray-500 uppercase">Date</th>
+                                        <th class="px-6 py-3 text-xs font-medium text-gray-500 uppercase">User</th>
+                                        <th class="px-6 py-3 text-xs font-medium text-gray-500 uppercase">Amount</th>
+                                        <th class="px-6 py-3 text-xs font-medium text-gray-500 uppercase">Binance User ID</th>
+                                        <th class="px-6 py-3 text-xs font-medium text-gray-500 uppercase">Status</th>
+                                        <th class="px-6 py-3 text-xs font-medium text-gray-500 uppercase">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="withdrawals-table-body" class="divide-y divide-gray-200">
+                                    <!-- Rows injected here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SETTINGS TAB -->
+                <div id="tab-settings" class="hidden space-y-6">
+                    <div class="flex justify-between items-center">
+                        <h2 class="text-2xl font-bold text-gray-800">Settings</h2>
+                        <button onclick="loadSettings()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"><i class="fas fa-sync-alt mr-2"></i>Refresh</button>
+                    </div>
+
+                    <!-- Bot Configuration -->
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4"><i class="fas fa-robot text-purple-500 mr-2"></i>Telegram Bot Configuration</h3>
+                        <div class="bg-purple-50 border border-purple-200 rounded-lg p-3 mb-4">
+                            <p class="text-purple-700 text-sm"><i class="fas fa-info-circle mr-2"></i>Configure bot tokens for notifications. Admin notifications are sent when users submit withdrawals.</p>
+                        </div>
+                        
+                        <div class="space-y-4">
+                            <!-- Admin Bot Token -->
+                            <div>
+                                <label class="block text-sm font-bold text-gray-600 uppercase mb-2">Admin Bot Token</label>
+                                <input type="password" id="setting-admin-bot-token" class="w-full border border-gray-300 rounded-lg p-3 font-mono text-sm focus:outline-none focus:border-purple-500" placeholder="123456789:ABCdefGHI...">
+                                <p class="text-xs text-gray-500 mt-1">Telegram bot token for sending withdrawal notifications to admin</p>
+                            </div>
+                            
+                            <!-- Admin Chat ID -->
+                            <div>
+                                <label class="block text-sm font-bold text-gray-600 uppercase mb-2">Admin Chat ID</label>
+                                <input type="text" id="setting-admin-chat-id" class="w-full border border-gray-300 rounded-lg p-3 font-mono text-sm focus:outline-none focus:border-purple-500" placeholder="-1001234567890 or 123456789">
+                                <p class="text-xs text-gray-500 mt-1">Your Telegram user ID or group chat ID to receive notifications</p>
+                            </div>
+                            
+                            <!-- Referral Bot Token -->
+                            <div>
+                                <label class="block text-sm font-bold text-gray-600 uppercase mb-2">Referral Bot Token</label>
+                                <input type="password" id="setting-referral-bot-token" class="w-full border border-gray-300 rounded-lg p-3 font-mono text-sm focus:outline-none focus:border-purple-500" placeholder="123456789:ABCdefGHI...">
+                                <p class="text-xs text-gray-500 mt-1">Telegram bot token for sending referral notifications to users</p>
+                            </div>
+                            
+                            <div class="flex items-center space-x-3">
+                                <button onclick="saveBotConfig()" class="px-6 py-3 bg-purple-600 text-white font-bold rounded-lg hover:bg-purple-700 transition">
+                                    <i class="fas fa-save mr-2"></i>Save Bot Config
+                                </button>
+                                <button onclick="testAdminNotification()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+                                    <i class="fas fa-paper-plane mr-2"></i>Test Notification
+                                </button>
+                            </div>
+                            <p id="bot-config-status" class="text-sm min-h-[20px]"></p>
+                        </div>
+                    </div>
+
+                    <!-- Ad Configuration -->
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4"><i class="fas fa-film text-amber-500 mr-2"></i>Ad Workflow Configuration</h3>
+                        <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+                            <p class="text-amber-700 text-sm"><i class="fas fa-info-circle mr-2"></i>These values document and control the current `libtl` rewarded and in-app ad setup used by the app frontend.</p>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-bold text-gray-600 uppercase mb-2">SDK Zone ID</label>
+                                <input type="text" id="setting-ad-zone-id" class="w-full border border-gray-300 rounded-lg p-3 font-mono text-sm focus:outline-none focus:border-amber-500" placeholder="10803241">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-600 uppercase mb-2">SDK Function Name</label>
+                                <input type="text" id="setting-ad-sdk-name" class="w-full border border-gray-300 rounded-lg p-3 font-mono text-sm focus:outline-none focus:border-amber-500" placeholder="show_10803241">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-600 uppercase mb-2">Reward Coins Per View</label>
+                                <input type="number" id="setting-ad-reward-coins" class="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:border-amber-500" placeholder="50">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-600 uppercase mb-2">Reward Network Key</label>
+                                <input type="text" id="setting-ad-network" class="w-full border border-gray-300 rounded-lg p-3 font-mono text-sm focus:outline-none focus:border-amber-500" placeholder="richads">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                            <label class="flex items-center justify-between border border-gray-200 rounded-lg px-4 py-3">
+                                <span class="text-sm font-medium text-gray-700">Rewarded Interstitial</span>
+                                <input type="checkbox" id="setting-ad-interstitial-enabled" class="h-4 w-4">
+                            </label>
+                            <label class="flex items-center justify-between border border-gray-200 rounded-lg px-4 py-3">
+                                <span class="text-sm font-medium text-gray-700">Rewarded Popup</span>
+                                <input type="checkbox" id="setting-ad-popup-enabled" class="h-4 w-4">
+                            </label>
+                            <label class="flex items-center justify-between border border-gray-200 rounded-lg px-4 py-3">
+                                <span class="text-sm font-medium text-gray-700">In-App Interstitial</span>
+                                <input type="checkbox" id="setting-ad-inapp-enabled" class="h-4 w-4">
+                            </label>
+                        </div>
+
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                            <div>
+                                <label class="block text-sm font-bold text-gray-600 uppercase mb-2">Frequency</label>
+                                <input type="number" id="setting-ad-frequency" class="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:border-amber-500" placeholder="2">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-600 uppercase mb-2">Capping (Hours)</label>
+                                <input type="number" step="0.1" id="setting-ad-capping" class="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:border-amber-500" placeholder="0.1">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-600 uppercase mb-2">Interval (Sec)</label>
+                                <input type="number" id="setting-ad-interval" class="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:border-amber-500" placeholder="30">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-600 uppercase mb-2">Timeout (Sec)</label>
+                                <input type="number" id="setting-ad-timeout" class="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:border-amber-500" placeholder="5">
+                            </div>
+                        </div>
+
+                        <label class="flex items-center justify-between border border-gray-200 rounded-lg px-4 py-3 mt-4">
+                            <span class="text-sm font-medium text-gray-700">Reset in-app session on page change</span>
+                            <input type="checkbox" id="setting-ad-every-page" class="h-4 w-4">
+                        </label>
+
+                        <div class="mt-4">
+                            <label class="block text-sm font-bold text-gray-600 uppercase mb-2">Generated Frontend Snippet</label>
+                            <textarea id="setting-ad-preview" rows="8" readonly class="w-full border border-gray-300 rounded-lg p-3 font-mono text-xs bg-gray-50 text-gray-700"></textarea>
+                        </div>
+
+                        <div class="flex items-center space-x-3 mt-4">
+                            <button onclick="saveAdConfig()" class="px-6 py-3 bg-amber-500 text-white font-bold rounded-lg hover:bg-amber-600 transition">
+                                <i class="fas fa-save mr-2"></i>Save Ad Config
+                            </button>
+                            <button onclick="renderAdConfigPreview()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+                                <i class="fas fa-code mr-2"></i>Refresh Snippet
+                            </button>
+                        </div>
+                        <p id="ad-config-status" class="text-sm min-h-[20px] mt-3"></p>
+                    </div>
+
+                    <!-- Withdrawal Options -->
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-bold text-gray-800"><i class="fas fa-layer-group text-blue-500 mr-2"></i>Withdrawal Tiers</h3>
+                            <button onclick="openWithdrawOptionModal()" class="px-4 py-2 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition">
+                                <i class="fas fa-plus mr-2"></i>Add Tier
+                            </button>
+                        </div>
+                        
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                            <p class="text-blue-700 text-sm"><i class="fas fa-info-circle mr-2"></i>Users can choose from these withdrawal tiers. Each tier requires a different amount of coins for a fixed USDT amount.</p>
+                        </div>
+
+                        <div id="withdraw-options-list" class="space-y-3">
+                            <!-- Options loaded dynamically -->
+                            <div class="animate-pulse bg-gray-100 rounded-lg p-4">
+                                <div class="h-4 bg-gray-200 rounded w-1/3"></div>
+                            </div>
+                        </div>
+                        
+                        <p id="settings-status" class="text-center mt-4 text-sm min-h-[20px]"></p>
+                    </div>
+
+                    <!-- Legacy Settings (Hidden) -->
+                    <div class="hidden">
+                        <input type="number" id="setting-min-coins" value="50000">
+                        <input type="number" id="setting-usd-value" value="0.10">
+                    </div>
+                </div>
+
+                <!-- USERS TAB -->
+                <div id="tab-users" class="hidden space-y-6">
+                    <div class="flex justify-between items-center flex-wrap gap-2">
+                        <h2 class="text-2xl font-bold text-gray-800">User Management</h2>
+                        <div class="flex items-center space-x-2">
+                            <span id="users-cache-status" class="text-xs text-gray-400"></span>
+                            <button onclick="openBroadcastModal()" class="px-4 py-2 bg-purple-600 text-white font-bold rounded-lg hover:bg-purple-700"><i class="fas fa-bullhorn mr-2"></i>Message All</button>
+                            <button onclick="refreshUsers()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"><i class="fas fa-sync-alt mr-2"></i>Refresh</button>
+                        </div>
+                    </div>
+
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-2">
+                        <p class="text-blue-700 text-sm"><i class="fas fa-info-circle mr-2"></i>Users are cached after loading. Click "Show More" to display additional users. Click "Refresh" to reload from database.</p>
+                    </div>
+
+                    <!-- ✨ TASK COMPLETION STATS SECTION -->
+                    <div id="task-stats-container" class="hidden bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
+                            <i class="fas fa-chart-bar text-blue-500 mr-2"></i>Task Completion Summary
+                        </h3>
+                        <div id="task-stats-content" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <!-- Stats injected here -->
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left">
+                                <thead class="bg-gray-50 border-b border-gray-200">
+                                    <tr>
+                                        <th class="px-6 py-3 text-xs font-medium text-gray-500 uppercase">#</th>
+                                        <th class="px-6 py-3 text-xs font-medium text-gray-500 uppercase">Name</th>
+                                        <th class="px-6 py-3 text-xs font-medium text-gray-500 uppercase">TG ID</th>
+                                        <th class="px-6 py-3 text-xs font-medium text-gray-500 uppercase">Total Coins</th>
+                                        <th class="px-6 py-3 text-xs font-medium text-gray-500 uppercase">Referrals</th>
+                                        <th class="px-6 py-3 text-xs font-medium text-gray-500 uppercase">Tasks Done</th>
+                                        <th class="px-6 py-3 text-xs font-medium text-gray-500 uppercase">Last Active</th>
+                                        <th class="px-6 py-3 text-xs font-medium text-gray-500 uppercase">Manage</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="users-table-body" class="divide-y divide-gray-200">
+                                    <!-- Rows injected here -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <div id="load-more-container" class="p-4 border-t border-gray-200">
+                            <!-- Load more button injected here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TASKS TAB -->
+                <div id="tab-tasks" class="hidden space-y-6">
+                    <div class="flex justify-between items-center">
+                        <h2 class="text-2xl font-bold text-gray-800">Task Management</h2>
+                        <button onclick="openAddTaskModal()" class="px-4 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700"><i class="fas fa-plus mr-2"></i>Add Task</button>
+                    </div>
+
+                    <div class="bg-teal-50 border border-teal-300 rounded-lg p-4 mb-4">
+                        <div class="flex items-start">
+                            <i class="fas fa-info-circle text-teal-500 mt-1 mr-3"></i>
+                            <div>
+                                <p class="text-teal-800 font-semibold">How Tasks Work</p>
+                                <p class="text-teal-700 text-sm">Tasks you create here will appear in the user's app. Users complete tasks (like joining channels) to earn coins. Completed tasks are tracked per user.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left">
+                                <thead class="bg-gray-50 border-b border-gray-200">
+                                    <tr>
+                                        <th class="px-6 py-3 text-xs font-medium text-gray-500 uppercase">Task ID</th>
+                                        <th class="px-6 py-3 text-xs font-medium text-gray-500 uppercase">Title</th>
+                                        <th class="px-6 py-3 text-xs font-medium text-gray-500 uppercase">Reward</th>
+                                        <th class="px-6 py-3 text-xs font-medium text-gray-500 uppercase">Type</th>
+                                        <th class="px-6 py-3 text-xs font-medium text-gray-500 uppercase">Status</th>
+                                        <th class="px-6 py-3 text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tasks-table-body" class="divide-y divide-gray-200">
+                                    <tr><td colspan="6" class="px-6 py-4 text-center text-gray-500">Loading tasks...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- NOTIFICATION TAB -->
+                <div id="tab-notification" class="hidden space-y-6">
+                    <div class="flex justify-between items-center">
+                        <h2 class="text-2xl font-bold text-gray-800">Profile Notification Banner</h2>
+                        <button onclick="loadNotificationSettings()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"><i class="fas fa-sync-alt mr-2"></i>Refresh</button>
+                    </div>
+
+                    <div class="bg-yellow-50 border border-yellow-300 rounded-lg p-4">
+                        <div class="flex items-start">
+                            <i class="fas fa-info-circle text-yellow-500 mt-1 mr-3"></i>
+                            <div>
+                                <p class="text-yellow-800 font-semibold">Notification Banner</p>
+                                <p class="text-yellow-700 text-sm">This notification appears at the top of the Profile screen. Users can dismiss it by clicking the close button.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4"><i class="fas fa-bell text-yellow-500 mr-2"></i>Notification Settings</h3>
+                        
+                        <div class="space-y-4">
+                            <!-- Enable/Disable -->
+                            <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                                <div>
+                                    <label class="block text-sm font-bold text-gray-700">Enable Notification</label>
+                                    <p class="text-xs text-gray-500 mt-1">Show notification banner to users</p>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" id="notification-enabled" class="sr-only peer">
+                                    <div class="w-14 h-7 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-yellow-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-yellow-500"></div>
+                                </label>
+                            </div>
+                            
+                            <!-- Title -->
+                            <div>
+                                <label class="block text-sm font-bold text-gray-600 uppercase mb-2">Notification Title</label>
+                                <input type="text" id="notification-title" class="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:border-yellow-500" placeholder="e.g., Important Update" maxlength="50">
+                                <p class="text-xs text-gray-500 mt-1">Max 50 characters</p>
+                            </div>
+                            
+                            <!-- Message -->
+                            <div>
+                                <label class="block text-sm font-bold text-gray-600 uppercase mb-2">Notification Message</label>
+                                <textarea id="notification-message" rows="3" class="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:border-yellow-500" placeholder="e.g., New withdrawal options are now available!" maxlength="200"></textarea>
+                                <p class="text-xs text-gray-500 mt-1">Max 200 characters</p>
+                            </div>
+                            
+                            <div class="flex items-center space-x-3">
+                                <button onclick="saveNotificationSettings()" class="px-6 py-3 bg-yellow-600 text-white font-bold rounded-lg hover:bg-yellow-700 transition">
+                                    <i class="fas fa-save mr-2"></i>Save Notification
+                                </button>
+                            </div>
+                            <p id="notification-status" class="text-sm min-h-[20px]"></p>
+                        </div>
+                        
+                        <!-- Preview -->
+                        <div class="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                            <p class="text-xs font-bold text-gray-500 uppercase mb-3">Preview</p>
+                            <div class="bg-gradient-to-r from-yellow-500 via-orange-500 to-red-500 rounded-xl p-4 shadow-lg relative">
+                                <button class="absolute top-2 right-2 w-6 h-6 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center text-white text-xs">
+                                    ✕
+                                </button>
+                                <p class="text-white font-bold text-sm" id="preview-title">Important Update</p>
+                                <p class="text-white/90 text-xs mt-1" id="preview-message">New withdrawal options are now available!</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FEATURED APPS TAB -->
+                <div id="tab-featured-apps" class="hidden space-y-6">
+                    <div class="flex justify-between items-center">
+                        <h2 class="text-2xl font-bold text-gray-800">Featured Apps</h2>
+                        <div class="flex space-x-2">
+                            <button onclick="openFeaturedAppModal()" class="px-4 py-2 bg-purple-600 text-white font-bold rounded-lg hover:bg-purple-700"><i class="fas fa-plus mr-2"></i>Add App</button>
+                            <button onclick="loadFeaturedAppsSettings()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"><i class="fas fa-sync-alt mr-2"></i>Refresh</button>
+                        </div>
+                    </div>
+
+                    <div class="bg-purple-50 border border-purple-300 rounded-lg p-4">
+                        <div class="flex items-start">
+                            <i class="fas fa-info-circle text-purple-500 mt-1 mr-3"></i>
+                            <div>
+                                <p class="text-purple-800 font-semibold">Featured Apps Section</p>
+                                <p class="text-purple-700 text-sm">Apps you add here will appear in the Profile screen. Users can tap on any app to open its link. Great for promoting other bots or channels!</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Enable/Disable -->
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h3 class="text-lg font-bold text-gray-800"><i class="fas fa-rocket text-purple-500 mr-2"></i>Show Featured Apps</h3>
+                                <p class="text-sm text-gray-500 mt-1">Enable to display the featured apps section</p>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="featured-apps-enabled" onchange="saveFeaturedAppsEnabled()" class="sr-only peer">
+                                <div class="w-14 h-7 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-purple-500"></div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Apps List -->
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4">Apps List</h3>
+                        <div id="featured-apps-list-admin" class="space-y-3">
+                            <div class="animate-pulse bg-gray-100 rounded-lg p-4">
+                                <div class="h-4 bg-gray-200 rounded w-1/3"></div>
+                            </div>
+                        </div>
+                        <p id="featured-apps-status" class="text-center mt-4 text-sm min-h-[20px]"></p>
+                    </div>
+                </div>
+
+            </main>
+        </div>
+    </div>
+
+                        <div class="bg-green-50 rounded-lg p-3 text-center border border-green-200">
+                            <p class="text-xs text-green-600 font-semibold uppercase">Referral Earnings</p>
+                            <p class="text-2xl font-bold text-green-700">${num(d.referralEarnings)}</p>
+                        </div>
+                        <div class="bg-blue-50 rounded-lg p-3 text-center border border-blue-200">
+                            <p class="text-xs text-blue-600 font-semibold uppercase">Referrals</p>
+                            <p class="text-2xl font-bold text-blue-700">${d.referralCount || 0}</p>
+                        </div>
+                        <div class="bg-purple-50 rounded-lg p-3 text-center border border-purple-200">
+                            <p class="text-xs text-purple-600 font-semibold uppercase">Tasks Done</p>
+                            <p class="text-2xl font-bold text-purple-700">${d.completedTasks ? d.completedTasks.length : 0}</p>
+                        </div>
+                    </div>
+
+                    <div class="space-y-4 text-sm">
+                        <div class="border rounded-lg p-3">
+                            <p class="font-bold text-gray-700 mb-2"><i class="fas fa-chart-line text-blue-500 mr-2"></i>Activity</p>
+                            <div class="grid grid-cols-2 gap-2 text-xs">
+                                <div><span class="text-gray-500">Daily Taps:</span> <span class="font-semibold">${num(d.dailyTaps)}</span></div>
+                                <div><span class="text-gray-500">Daily Interstitials:</span> <span class="font-semibold">${num(d.dailyInterstitialUses)}</span></div>
+                                <div><span class="text-gray-500">Daily Popups:</span> <span class="font-semibold">${num(d.dailyPopupUses)}</span></div>
+                                <div><span class="text-gray-500">Daily Treasure:</span> <span class="font-semibold">${num(d.dailyTreasureUses)}</span></div>
+                                <div><span class="text-gray-500">Daily Ad Task:</span> <span class="font-semibold">${num(d.dailyAdTaskUses)}</span></div>
+                                <div><span class="text-gray-500">Last Reset:</span> <span class="font-semibold">${val(d.lastResetDate)}</span></div>
+                            </div>
+                        </div>
+
+                        <div class="border rounded-lg p-3">
+                            <p class="font-bold text-gray-700 mb-2"><i class="fas fa-calendar text-green-500 mr-2"></i>Dates</p>
+                            <div class="grid grid-cols-1 gap-1 text-xs">
+                                <div><span class="text-gray-500">Created:</span> <span class="font-semibold">${date(d.createdAt)}</span></div>
+                                <div><span class="text-gray-500">Last Active:</span> <span class="font-semibold">${date(d.lastActive)}</span></div>
+                                <div><span class="text-gray-500">Referred By:</span> <span class="font-semibold">${val(d.referredBy, 'None (organic)')}</span></div>
+                            </div>
+                        </div>
+
+                        <div class="border rounded-lg p-3">
+                            <p class="font-bold text-gray-700 mb-2"><i class="fas fa-users text-indigo-500 mr-2"></i>Referrals (${d.referralCount || 0})</p>
+                            <div class="flex flex-wrap">${referralsList}</div>
+                        </div>
+
+                        <div class="border rounded-lg p-3">
+                            <p class="font-bold text-gray-700 mb-2"><i class="fas fa-clipboard-check text-purple-500 mr-2"></i>Completed Tasks</p>
+                            <div class="flex flex-wrap">${tasksList}</div>
+                        </div>
+
+                        <div class="border rounded-lg p-3">
+                            <p class="font-bold text-gray-700 mb-2"><i class="fas fa-money-bill-wave text-green-500 mr-2"></i>Withdrawal History (${d.withdrawHistory ? d.withdrawHistory.length : 0})</p>
+                            ${withdrawHtml}
+                        </div>
+
+                        ${d.milestone10kClaimed && d.milestone10kClaimed.length > 0 ? `
+                        <div class="border rounded-lg p-3">
+                            <p class="font-bold text-gray-700 mb-2"><i class="fas fa-trophy text-yellow-500 mr-2"></i>Milestones Claimed</p>
+                            <div class="flex flex-wrap">${d.milestone10kClaimed.map(m => '<span class="inline-block bg-yellow-100 text-yellow-700 text-xs px-2 py-1 rounded mr-1 mb-1">' + m + '</span>').join('')}</div>
+                        </div>` : ''}
+                    </div>
+                `;
+            } catch (e) {
+                console.error('Error fetching user info:', e);
+                content.innerHTML = '<div class="text-center py-10 text-red-500"><i class="fas fa-exclamation-triangle text-3xl mb-2"></i><p>Error loading user data: ' + e.message + '</p></div>';
+            }
+        };
+
+        window.closeUserInfoModal = function() {
+            document.getElementById('user-info-modal').classList.add('hidden');
+        };
+
+        window.processWithdrawalByIndex = async function(index, action) {
+            const withdrawal = window.withdrawalData[index];
+            if (!withdrawal || !withdrawal.id) {
+                alert("Error: Could not find withdrawal data. Please refresh.");
+                return;
+            }
+            
+            if (!confirm(`Are you sure you want to ${action} this request?`)) return;
+
+            const btn = document.getElementById(`btn-wd-${index}`);
+            if(btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+            try {
+                // 1. Update the withdrawals collection
+                const withdrawRef = doc(db, 'withdrawals', withdrawal.id);
+                await updateDoc(withdrawRef, { status: action });
+
+                // 2. Update the user's withdrawHistory array in score_info
+                if (withdrawal.userId) {
+                    try {
+                        const userScoreRef = doc(db, 'users', withdrawal.userId, 'game_data', 'score_info');
+                        const userScoreDoc = await getDoc(userScoreRef);
+                        
+                        if (userScoreDoc.exists()) {
+                            const userData = userScoreDoc.data();
+                            const withdrawHistory = userData.withdrawHistory || [];
+                            
+                            // Find and update the matching withdrawal entry by timestamp/datetime
+                            const updatedHistory = withdrawHistory.map(entry => {
+                                // Match by address and amount (or date if available)
+                                if (entry.address === withdrawal.walletAddress && 
+                                    entry.amountCoins === withdrawal.amountCoins) {
+                                    return { ...entry, status: action };
+                                }
+                                return entry;
+                            });
+                            
+                            await updateDoc(userScoreRef, { withdrawHistory: updatedHistory });
+                            console.log('User withdrawHistory updated successfully');
+                        }
+                    } catch (userError) {
+                        console.warn('Could not update user withdrawHistory:', userError.message);
+                        // Continue even if user update fails - main withdrawal status is updated
+                    }
+                }
+
+                // 3. Send Telegram notification to user on approval
+                if (action === 'Paid' && withdrawal.userId) {
+                    try {
+                        let token = referralBotToken;
+                        if (!token) {
+                            const botConfigRef = doc(db, 'app_settings', 'bot_config');
+                            const botConfigDoc2 = await getDoc(botConfigRef);
+                            if (botConfigDoc2.exists() && botConfigDoc2.data().referralBotToken) {
+                                token = botConfigDoc2.data().referralBotToken;
+                                referralBotToken = token;
+                            }
+                        }
+                        if (token) {
+                            const usdAmt = parseFloat(withdrawal.amountUsd) || parseFloat(withdrawal.amountBnb) || 0;
+                            const notifMsg = `✅ <b>Withdrawal Approved!</b>\n\n` +
+                                `💰 <b>Amount:</b> ${(withdrawal.amountCoins || 0).toLocaleString()} Coins\n` +
+                                `💵 <b>USDT:</b> $${usdAmt.toFixed(2)}\n` +
+                                `📦 <b>Binance ID:</b> <code>${withdrawal.walletAddress || 'N/A'}</code>\n\n` +
+                                `Your withdrawal has been processed successfully!\n\n` +
+                                `🔔 Check payment status: @cryptoEarnePay`;
+                            await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ chat_id: withdrawal.userId, text: notifMsg, parse_mode: 'HTML' })
+                            });
+                            console.log('User notified about approved withdrawal');
+                        }
+                    } catch (notifErr) {
+                        console.warn('Could not notify user:', notifErr.message);
+                    }
+                }
+
+                alert(`Withdrawal ${action}!`);
+                loadWithdrawals();
+
+            } catch (e) {
+                console.error("Transaction failed: ", e);
+                alert("Error: " + e.message);
+                loadWithdrawals(); 
+            }
+        }
+
+        window.processWithdrawal = async function(docId, action) {
+            if (!confirm(`Are you sure you want to ${action} this request?`)) return;
+
+            const btn = document.getElementById(`btn-${docId}`);
+            if(btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+            try {
+                const withdrawRef = doc(db, 'withdrawals', docId);
+                
+                // Only Update Withdrawal Status (Allowed by 'withdrawals' rule)
+                // We CANNOT update user balance here (Blocked by 'users' rule)
+                await updateDoc(withdrawRef, { status: action });
+
+                alert(`Withdrawal ${action}!`);
+                loadWithdrawals();
+
+            } catch (e) {
+                console.error("Transaction failed: ", e);
+                alert("Error: " + e.message);
+                loadWithdrawals(); 
+            }
+        }
+
+
+        window.closeMessageModal = function() {
+            document.getElementById('send-message-modal').classList.add('hidden');
+            currentMessageUserId = null;
+            currentMessageUserName = null;
+            document.getElementById('msg-status').innerText = '';
+        }
+
+        window.sendMessageToUser = async function() {
+            if (!currentMessageUserId) return;
+            
+            const messageText = document.getElementById('msg-text').value.trim();
+            const statusEl = document.getElementById('msg-status');
+            const btn = document.getElementById('send-msg-btn');
+            
+            if (!messageText) {
+                statusEl.innerText = '⚠️ Please enter a message';
+                statusEl.className = 'text-sm text-yellow-600';
+                return;
+            }
+            
+            // Load referral bot token from Firebase if not already loaded
+            if (!referralBotToken) {
+                try {
+                    const botConfigRef = doc(db, 'app_settings', 'bot_config');
+                    const botConfigDoc = await getDoc(botConfigRef);
+                    
+                    if (botConfigDoc.exists() && botConfigDoc.data().referralBotToken) {
+                        referralBotToken = botConfigDoc.data().referralBotToken;
+                    }
+                } catch (e) {
+                    console.warn('Could not load referral bot token from Firebase:', e);
+                }
+            }
+            
+            if (!referralBotToken) {
+                statusEl.innerText = '❌ Referral bot token not configured. Please set it in Settings first.';
+                statusEl.className = 'text-sm text-red-600';
+                return;
+            }
+            
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Sending...';
+            btn.disabled = true;
+            statusEl.innerText = '📤 Sending message...';
+            statusEl.className = 'text-sm text-blue-600';
+            
+            try {
+                const payload = {
+                    chat_id: currentMessageUserId,
+                    text: messageText,
+                    parse_mode: 'HTML'
+                };
+                const btns = getButtonsFromContainer('msg-buttons-container');
+                if (btns && btns.length > 0) {
+                    payload.reply_markup = { inline_keyboard: [ btns.map(b => ({ text: b.text, url: b.url })) ] };
+                }
+                const response = await fetch(`https://api.telegram.org/bot${referralBotToken}/sendMessage`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                const data = await response.json();
+                
+                if (data.ok) {
+                    statusEl.innerText = '✅ Message sent successfully!';
+                    statusEl.className = 'text-sm text-green-600';
+                    document.getElementById('msg-text').value = '';
+                    setTimeout(() => {
+                        closeMessageModal();
+                    }, 1500);
+                } else {
+                    statusEl.innerText = '❌ Telegram error: ' + (data.description || 'Unknown error');
+                    statusEl.className = 'text-sm text-red-600';
+                }
+            } catch (e) {
+                console.error('Error sending message:', e);
+                statusEl.innerText = '❌ Error: ' + e.message;
+                statusEl.className = 'text-sm text-red-600';
+            } finally {
+                btn.innerHTML = '<i class="fas fa-paper-plane mr-2"></i>Send Message';
+                btn.disabled = false;
+            }
+        }
+
+        // --- RENDER FUNCTIONS (With Fixes) ---
+
+        function renderWithdrawals(list) {
+            const tbody = document.getElementById('withdrawals-table-body');
+            if (list.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-gray-500">No requests found.</td></tr>';
+                return;
+            }
+
+            // Store full withdrawal data for safe access via button clicks
+            window.withdrawalData = list;
+
+            tbody.innerHTML = list.map((item, index) => {
+                // Handle both old format (amountUsd) and new format (legacy amountBnb fallback)
+                const usdAmount = parseFloat(item.amountUsd) || parseFloat(item.amountBnb) || 0;
+                
+                return `
+                <tr class="hover:bg-gray-50 transition">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        ${new Date(item.timestamp).toLocaleDateString()}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium text-gray-900">${window.escapeAttr(item.name) || 'Unknown'}</div>
+                        <div class="text-xs text-gray-500">ID: ${item.userId}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <span class="font-bold">${(item.amountCoins || 0).toLocaleString()}</span> Coins<br>
+                        <span class="text-xs text-green-600">$${usdAmount.toFixed(2)} USDT</span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-xs text-gray-500 max-w-xs truncate cursor-pointer hover:text-blue-600" onclick="navigator.clipboard.writeText('${window.escapeAttr(item.walletAddress)}'); alert('Address copied!')">
+                        ${window.escapeAttr(item.walletAddress)} <i class="fas fa-copy ml-1"></i>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                            ${item.status === 'Pending' ? 'status-pending' : (item.status === 'Paid' ? 'status-paid' : 'status-rejected')}">
+                            ${item.status}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium" id="btn-wd-${index}">
+                        <button onclick="openUserInfoModal('${item.userId}')" class="text-indigo-600 hover:text-indigo-900 mr-3 font-bold" title="View user details">
+                            <i class="fas fa-info-circle"></i> Info
+                        </button>
+                        ${item.status === 'Pending' ? `
+                            <button onclick="processWithdrawalByIndex(${index}, 'Paid')" class="text-green-600 hover:text-green-900 mr-3 font-bold">Approve</button>
+                            <button onclick="processWithdrawalByIndex(${index}, 'Rejected')" class="text-red-600 hover:text-red-900 font-bold">Reject</button>
+                        ` : '<span class="text-gray-400">Completed</span>'}
+                    </td>
+                </tr>
+            `}).join('');
+        }
+
+        function renderUsers(list) {
+            const tbody = document.getElementById('users-table-body');
+            if (list.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-gray-500">No users found.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = list.map((user, index) => {
+                const referralCount = user.referralCount || (user.referrals ? user.referrals.length : 0) || 0;
+                const tasksDone = user.completedTasks ? user.completedTasks.length : 0;
+                return `
+                <tr class="hover:bg-gray-50 transition">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-400">${index + 1}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${window.escapeAttr(user.name) || 'Player'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${user.id}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-teal-600 font-bold">${(user.score || 0).toLocaleString()}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-green-700 font-bold">${referralCount}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-blue-700 font-bold">${tasksDone}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${user.lastActive ? new Date(user.lastActive).toLocaleDateString() : 'N/A'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        <div class="flex space-x-2">
+                            <button onclick="openMessageModal('${user.id}', '${window.escapeAttr(user.name)}')" 
+                                class="text-green-600 hover:text-green-900 font-bold">
+                                <i class="fas fa-paper-plane"></i> Message
+                            </button>
+                            <button onclick="openEditUserModal('${user.id}', ${user.score || 0}, '${window.escapeAttr(user.name)}')" 
+                                class="text-blue-600 hover:text-blue-900 font-bold">
+                                <i class="fas fa-edit"></i> Edit
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                `;
+            }).join('');
+            
+            // Update cache status
+            const cacheStatus = document.getElementById('users-cache-status');
+            if (cacheStatus) {
+                cacheStatus.innerText = `(${list.length} cached)`;
+            }
+        }
+
+        function updateStats(users, withdrawals) {
+            if (withdrawals) {
+                const pending = withdrawals.filter(w => w.status === 'Pending').length;
+                const paid = withdrawals.filter(w => w.status === 'Paid').reduce((acc, curr) => acc + (parseFloat(curr.amountUsd) || 0), 0);
+                
+                document.getElementById('stat-pending-wd').innerText = pending;
+                document.getElementById('stat-total-paid').innerText = `$${(paid || 0).toFixed(2)}`;
+            }
+            if (users) {
+                document.getElementById('stat-total-users').innerText = users.length;
+                
+                // ✨ AUTO-DISPLAY TASK COMPLETION STATS
+                displayTaskCompletionStatsUI();
+            }
+        }
+
+        // --- TASKS FUNCTIONS ---
+        
+        let editingTaskId = null; // Track if we're editing an existing task
+        
+        window.loadTasks = async function() {
+            const tbody = document.getElementById('tasks-table-body');
+            tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-gray-500">Loading tasks...</td></tr>';
+            
+            try {
+                const tasksRef = doc(db, 'app_settings', 'tasks_config');
+                const tasksDoc = await getDoc(tasksRef);
+                
+                let tasks = [];
+                if (tasksDoc.exists()) {
+                    tasks = tasksDoc.data().tasks || [];
+                }
+                
+                renderTasks(tasks);
+            } catch (e) {
+                console.error('Error loading tasks:', e);
+                tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-4 text-center text-red-500">Error loading tasks: ${e.message}</td></tr>`;
+            }
+        }
+        
+        function renderTasks(tasks) {
+            const tbody = document.getElementById('tasks-table-body');
+            
+            if (tasks.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">
+                    <i class="fas fa-clipboard-list text-4xl text-gray-300 mb-2"></i>
+                    <p>No tasks created yet</p>
+                    <p class="text-xs text-gray-400">Click "Add Task" to create your first task</p>
+                </td></tr>`;
+                return;
+            }
+            
+            tbody.innerHTML = tasks.map((task, index) => `
+                <tr class="${task.active === false ? 'bg-gray-50 opacity-60' : ''}">
+                    <td class="px-6 py-4 text-sm font-mono text-gray-600">${escapeAttr(task.id)}</td>
+                    <td class="px-6 py-4">
+                        <div class="font-medium text-gray-800">${escapeAttr(task.title)}</div>
+                        <div class="text-xs text-gray-500">${escapeAttr(task.description || '')}</div>
+                    </td>
+                    <td class="px-6 py-4 font-bold text-teal-600">${(task.reward || 0).toLocaleString()}</td>
+                    <td class="px-6 py-4 text-sm text-gray-600">${escapeAttr(task.type || 'other')}</td>
+                    <td class="px-6 py-4">
+                        ${task.active !== false 
+                            ? '<span class="px-2 py-1 text-xs font-bold rounded-full bg-green-100 text-green-700">Active</span>' 
+                            : '<span class="px-2 py-1 text-xs font-bold rounded-full bg-gray-200 text-gray-600">Inactive</span>'}
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="flex space-x-2">
+                            <button onclick="editTask('${escapeAttr(task.id)}')" class="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded hover:bg-blue-200">
+                                <i class="fas fa-edit"></i> Edit
+                            </button>
+                            <button onclick="deleteTask('${escapeAttr(task.id)}')" class="px-3 py-1 bg-red-100 text-red-700 text-xs font-bold rounded hover:bg-red-200">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+        
+        window.openAddTaskModal = function() {
+            editingTaskId = null;
+            document.getElementById('task-modal-title').innerText = 'Add New Task';
+            document.getElementById('task-id').value = '';
+            document.getElementById('task-id').disabled = false;
+            document.getElementById('task-title').value = '';
+            document.getElementById('task-description').value = '';
+            document.getElementById('task-reward').value = '';
+            document.getElementById('task-link').value = '';
+            document.getElementById('task-type').value = 'telegram_channel';
+            document.getElementById('task-icon').value = 'telegram';
+            document.getElementById('task-active').checked = true;
+            document.getElementById('task-modal').classList.remove('hidden');
+        }
+        
+        window.closeTaskModal = function() {
+            document.getElementById('task-modal').classList.add('hidden');
+            editingTaskId = null;
+        }
+        
+        window.editTask = async function(taskId) {
+            try {
+                const tasksRef = doc(db, 'app_settings', 'tasks_config');
+                const tasksDoc = await getDoc(tasksRef);
+                
+                if (!tasksDoc.exists()) return;
+                
+                const tasks = tasksDoc.data().tasks || [];
+                const task = tasks.find(t => t.id === taskId);
+                
+                if (!task) {
+                    alert('Task not found');
+                    return;
+                }
+                
+                editingTaskId = taskId;
+                document.getElementById('task-modal-title').innerText = 'Edit Task';
+                document.getElementById('task-id').value = task.id;
+                document.getElementById('task-id').disabled = true; // Can't change ID when editing
+                document.getElementById('task-title').value = task.title || '';
+                document.getElementById('task-description').value = task.description || '';
+                document.getElementById('task-reward').value = task.reward || 0;
+                document.getElementById('task-link').value = task.link || '';
+                document.getElementById('task-type').value = task.type || 'telegram_channel';
+                document.getElementById('task-icon').value = task.icon || 'telegram';
+                document.getElementById('task-active').checked = task.active !== false;
+                document.getElementById('task-modal').classList.remove('hidden');
+            } catch (e) {
+                console.error('Error loading task for edit:', e);
+                alert('Error loading task: ' + e.message);
+            }
+        }
+        
+        window.saveTask = async function() {
+            const taskId = document.getElementById('task-id').value.trim();
+            const title = document.getElementById('task-title').value.trim();
+            const description = document.getElementById('task-description').value.trim();
+            const reward = parseInt(document.getElementById('task-reward').value, 10);
+            const link = document.getElementById('task-link').value.trim();
+            const type = document.getElementById('task-type').value;
+            const icon = document.getElementById('task-icon').value;
+            const active = document.getElementById('task-active').checked;
+            
+            // Validation
+            if (!taskId) { alert('Task ID is required'); return; }
+            if (taskId.includes(' ')) { alert('Task ID cannot contain spaces'); return; }
+            if (!title) { alert('Title is required'); return; }
+            if (!reward || reward <= 0) { alert('Valid reward amount is required'); return; }
+            if (!link) { alert('Link is required'); return; }
+            
+            const btn = document.getElementById('save-task-btn');
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+            btn.disabled = true;
+            
+            try {
+                const tasksRef = doc(db, 'app_settings', 'tasks_config');
+                const tasksDoc = await getDoc(tasksRef);
+                
+                let tasks = [];
+                if (tasksDoc.exists()) {
+                    tasks = tasksDoc.data().tasks || [];
+                }
+                
+                const newTask = {
+                    id: taskId,
+                    title: title,
+                    description: description,
+                    reward: reward,
+                    link: link,
+                    type: type,
+                    icon: icon,
+                    active: active
+                };
+                
+                if (editingTaskId) {
+                    // Update existing task
+                    const index = tasks.findIndex(t => t.id === editingTaskId);
+                    if (index !== -1) {
+                        tasks[index] = newTask;
+                    }
+                } else {
+                    // Check if ID already exists
+                    if (tasks.some(t => t.id === taskId)) {
+                        alert('A task with this ID already exists');
+                        btn.innerHTML = 'Save Task';
+                        btn.disabled = false;
+                        return;
+                    }
+                    tasks.push(newTask);
+                }
+                
+                await setDoc(tasksRef, { tasks: tasks });
+                
+                closeTaskModal();
+                loadTasks();
+                alert('Task saved successfully!');
+            } catch (e) {
+                console.error('Error saving task:', e);
+                alert('Error saving task: ' + e.message);
+            } finally {
+                btn.innerHTML = 'Save Task';
+                btn.disabled = false;
+            }
+        }
+        
+        window.deleteTask = async function(taskId) {
+            if (!confirm(`Are you sure you want to delete task "${taskId}"? This cannot be undone.`)) {
+                return;
+            }
+            
+            try {
+                const tasksRef = doc(db, 'app_settings', 'tasks_config');
+                const tasksDoc = await getDoc(tasksRef);
+                
+                if (!tasksDoc.exists()) return;
+                
+                let tasks = tasksDoc.data().tasks || [];
+                tasks = tasks.filter(t => t.id !== taskId);
+                
+                await setDoc(tasksRef, { tasks: tasks });
+                
+                loadTasks();
+                alert('Task deleted successfully!');
+            } catch (e) {
+                console.error('Error deleting task:', e);
+                alert('Error deleting task: ' + e.message);
+            }
+        }
+
+        // --- SETTINGS FUNCTIONS ---
+        
+        function getDefaultAdConfig() {
+            return {
+                zoneId: '10803241',
+                sdkName: 'show_10803241',
+                rewardCoins: 50,
+                networkKey: 'richads',
+                rewardedInterstitialEnabled: true,
+                rewardedPopupEnabled: true,
+                inAppEnabled: true,
+                inAppSettings: {
+                    frequency: 2,
+                    capping: 0.1,
+                    interval: 30,
+                    timeout: 5,
+                    everyPage: false
+                }
+            };
+        }
+
+        function populateAdConfigForm(config = {}) {
+            const merged = {
+                ...getDefaultAdConfig(),
+                ...config,
+                inAppSettings: {
+                    ...getDefaultAdConfig().inAppSettings,
+                    ...(config.inAppSettings || {})
+                }
+            };
+
+            document.getElementById('setting-ad-zone-id').value = merged.zoneId || '';
+            document.getElementById('setting-ad-sdk-name').value = merged.sdkName || '';
+            document.getElementById('setting-ad-reward-coins').value = merged.rewardCoins ?? 50;
+            document.getElementById('setting-ad-network').value = merged.networkKey || 'richads';
+            document.getElementById('setting-ad-interstitial-enabled').checked = merged.rewardedInterstitialEnabled !== false;
+            document.getElementById('setting-ad-popup-enabled').checked = merged.rewardedPopupEnabled !== false;
+            document.getElementById('setting-ad-inapp-enabled').checked = merged.inAppEnabled !== false;
+            document.getElementById('setting-ad-frequency').value = merged.inAppSettings.frequency ?? 2;
+            document.getElementById('setting-ad-capping').value = merged.inAppSettings.capping ?? 0.1;
+            document.getElementById('setting-ad-interval').value = merged.inAppSettings.interval ?? 30;
+            document.getElementById('setting-ad-timeout').value = merged.inAppSettings.timeout ?? 5;
+            document.getElementById('setting-ad-every-page').checked = Boolean(merged.inAppSettings.everyPage);
+
+            renderAdConfigPreview();
+        }
+
+        window.renderAdConfigPreview = function() {
+            const zoneId = document.getElementById('setting-ad-zone-id').value.trim() || '10803241';
+            const sdkName = document.getElementById('setting-ad-sdk-name').value.trim() || `show_${zoneId}`;
+            const rewardCoins = parseInt(document.getElementById('setting-ad-reward-coins').value, 10) || 50;
+            const networkKey = document.getElementById('setting-ad-network').value.trim() || 'richads';
+            const interstitialEnabled = document.getElementById('setting-ad-interstitial-enabled').checked;
+            const popupEnabled = document.getElementById('setting-ad-popup-enabled').checked;
+            const inAppEnabled = document.getElementById('setting-ad-inapp-enabled').checked;
+            const frequency = parseInt(document.getElementById('setting-ad-frequency').value, 10) || 2;
+            const capping = parseFloat(document.getElementById('setting-ad-capping').value);
+            const interval = parseInt(document.getElementById('setting-ad-interval').value, 10) || 30;
+            const timeout = parseInt(document.getElementById('setting-ad-timeout').value, 10) || 5;
+            const everyPage = document.getElementById('setting-ad-every-page').checked;
+
+            const preview = [
+                `<script src="//libtl.com/sdk.js" data-zone="${zoneId}" data-sdk="${sdkName}"></script>`,
+                '',
+                `// Reward network: ${networkKey}`,
+                `// Reward coins: ${rewardCoins}`,
+                '',
+                interstitialEnabled ? `${sdkName}().then(() => rewardUser('${networkKey}', ${rewardCoins}));` : '// Rewarded interstitial disabled',
+                '',
+                popupEnabled ? `${sdkName}('pop').then(() => rewardUser('${networkKey}', ${rewardCoins}));` : '// Rewarded popup disabled',
+                '',
+                inAppEnabled ? `${sdkName}({` : '// In-app interstitial disabled',
+                ...(inAppEnabled ? [
+                    `  type: 'inApp',`,
+                    `  inAppSettings: {`,
+                    `    frequency: ${frequency},`,
+                    `    capping: ${Number.isFinite(capping) ? capping : 0.1},`,
+                    `    interval: ${interval},`,
+                    `    timeout: ${timeout},`,
+                    `    everyPage: ${everyPage}`,
+                    `  }`,
+                    `});`
+                ] : ['// In-app interstitial disabled'])
+            ].join('\n');
+
+            document.getElementById('setting-ad-preview').value = preview;
+        }
+
+        // Settings management
+        
+        window.loadSettings = async function() {
+            try {
+                // Load Bot Configuration
+                const botConfigRef = doc(db, 'app_settings', 'bot_config');
+                const botConfigDoc = await getDoc(botConfigRef);
+                
+                if (botConfigDoc.exists()) {
+                    const botData = botConfigDoc.data();
+                    document.getElementById('setting-admin-bot-token').value = botData.adminBotToken || '';
+                    document.getElementById('setting-admin-chat-id').value = botData.adminChatId || '';
+                    document.getElementById('setting-referral-bot-token').value = botData.referralBotToken || '';
+                }
+
+                const adConfigRef = doc(db, 'app_settings', 'ad_config');
+                const adConfigDoc = await getDoc(adConfigRef);
+                if (adConfigDoc.exists()) {
+                    populateAdConfigForm(adConfigDoc.data());
+                } else {
+                    populateAdConfigForm(getDefaultAdConfig());
+                }
+                
+                // Load withdraw settings (USDT-only, no BNB price needed)
+                const settingsRef = doc(db, 'app_settings', 'withdraw_config');
+                const settingsDoc = await getDoc(settingsRef);
+                
+                if (settingsDoc.exists()) {
+                    const data = settingsDoc.data();
+                    
+                    // Legacy support
+                    document.getElementById('setting-min-coins').value = data.minCoins || 50000;
+                    document.getElementById('setting-usd-value').value = data.usdValue || 0.10;
+                }
+
+                // Load withdrawal options
+                const optionsRef = collection(db, 'app_settings', 'withdraw_config', 'options');
+                const optionsSnap = await getDocs(optionsRef);
+                
+                withdrawOptionsData = [];
+                optionsSnap.forEach(doc => {
+                    withdrawOptionsData.push({ id: doc.id, ...doc.data() });
+                });
+                
+                // Sort by coins ascending
+                withdrawOptionsData.sort((a, b) => a.coins - b.coins);
+                
+                renderWithdrawOptionsList();
+            } catch (e) {
+                console.error('Error loading settings:', e);
+                document.getElementById('settings-status').innerText = 'Error loading settings: ' + e.message;
+                document.getElementById('settings-status').className = 'text-center mt-4 text-sm text-red-500';
+            }
+        }
+
+        window.saveAdConfig = async function() {
+            const statusEl = document.getElementById('ad-config-status');
+            const zoneId = document.getElementById('setting-ad-zone-id').value.trim();
+            const sdkName = document.getElementById('setting-ad-sdk-name').value.trim();
+            const rewardCoins = parseInt(document.getElementById('setting-ad-reward-coins').value, 10);
+            const networkKey = document.getElementById('setting-ad-network').value.trim();
+            const frequency = parseInt(document.getElementById('setting-ad-frequency').value, 10);
+            const capping = parseFloat(document.getElementById('setting-ad-capping').value);
+            const interval = parseInt(document.getElementById('setting-ad-interval').value, 10);
+            const timeout = parseInt(document.getElementById('setting-ad-timeout').value, 10);
+
+            if (!zoneId) {
+                statusEl.innerText = 'Zone ID is required';
+                statusEl.className = 'text-sm text-red-600';
+                return;
+            }
+
+            if (!sdkName) {
+                statusEl.innerText = 'SDK function name is required';
+                statusEl.className = 'text-sm text-red-600';
+                return;
+            }
+
+            if (!networkKey) {
+                statusEl.innerText = 'Reward network key is required';
+                statusEl.className = 'text-sm text-red-600';
+                return;
+            }
+
+            if (!Number.isFinite(rewardCoins) || rewardCoins <= 0) {
+                statusEl.innerText = 'Reward coins must be greater than 0';
+                statusEl.className = 'text-sm text-red-600';
+                return;
+            }
+
+            renderAdConfigPreview();
+
+            try {
+                await setDoc(doc(db, 'app_settings', 'ad_config'), {
+                    zoneId,
+                    sdkName,
+                    rewardCoins,
+                    networkKey,
+                    rewardedInterstitialEnabled: document.getElementById('setting-ad-interstitial-enabled').checked,
+                    rewardedPopupEnabled: document.getElementById('setting-ad-popup-enabled').checked,
+                    inAppEnabled: document.getElementById('setting-ad-inapp-enabled').checked,
+                    inAppSettings: {
+                        frequency: Number.isFinite(frequency) ? frequency : 2,
+                        capping: Number.isFinite(capping) ? capping : 0.1,
+                        interval: Number.isFinite(interval) ? interval : 30,
+                        timeout: Number.isFinite(timeout) ? timeout : 5,
+                        everyPage: document.getElementById('setting-ad-every-page').checked
+                    },
+                    updatedAt: new Date().toISOString()
+                }, { merge: true });
+
+                statusEl.innerText = 'Ad configuration saved';
+                statusEl.className = 'text-sm text-green-600';
+            } catch (e) {
+                console.error('Error saving ad config:', e);
+                statusEl.innerText = 'Error saving ad config: ' + e.message;
+                statusEl.className = 'text-sm text-red-600';
+            }
+        }
+
+        function renderWithdrawOptionsList() {
+            const container = document.getElementById('withdraw-options-list');
+            
+            if (withdrawOptionsData.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-8 text-gray-500">
+                        <i class="fas fa-inbox text-4xl mb-2"></i>
+                        <p>No withdrawal tiers configured.</p>
+                        <p class="text-sm">Click "Add Tier" to create your first option.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = withdrawOptionsData.map((opt, index) => {
+                const usdtValue = opt.usdtAmount || opt.bnbAmount || 0; // USDT-first
+                const tierIcons = ['🥉', '🥈', '🥇', '💎', '👑'];
+                const tierIcon = tierIcons[Math.min(index, tierIcons.length - 1)];
+                
+                return `
+                    <div class="flex items-center justify-between bg-gray-50 rounded-lg p-4 border border-gray-200 hover:border-blue-300 transition">
+                        <div class="flex items-center space-x-4">
+                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-400 to-cyan-500 flex items-center justify-center text-2xl">
+                                ${tierIcon}
+                            </div>
+                            <div>
+                                <div class="flex items-center space-x-2">
+                                    <p class="font-bold text-gray-800">$${usdtValue.toFixed(2)} USDT</p>
+                                    ${opt.label ? `<span class="px-2 py-0.5 bg-purple-100 text-purple-600 text-xs rounded-full">${opt.label}</span>` : ''}
+                                </div>
+                                <p class="text-sm text-gray-500">
+                                    ${opt.coins.toLocaleString()} coins → $${usdtValue.toFixed(2)} USDT
+                                </p>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <button onclick="editWithdrawOption('${opt.id}')" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Edit">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button onclick="deleteWithdrawOption('${opt.id}')" class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition" title="Delete">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        window.openWithdrawOptionModal = function(optionId = null) {
+            editingWithdrawOptionId = optionId;
+            
+            // Clear form
+            document.getElementById('wo-id').value = '';
+            document.getElementById('wo-label').value = '';
+            document.getElementById('wo-coins').value = '';
+            document.getElementById('wo-usdt').value = '';
+            document.getElementById('wo-usdt-preview').innerText = '0.00 USDT';
+            
+            if (optionId) {
+                const option = withdrawOptionsData.find(o => o.id === optionId);
+                if (option) {
+                    document.getElementById('wo-id').value = option.id;
+                    document.getElementById('wo-id').disabled = true;
+                    document.getElementById('wo-label').value = option.label || '';
+                    document.getElementById('wo-coins').value = option.coins;
+                    // Use USDT amount directly
+                    const usdtValue = option.usdtAmount || option.bnbAmount || 0;
+                    document.getElementById('wo-usdt').value = usdtValue;
+                    updateUsdtPreview();
+                }
+                document.getElementById('withdraw-option-modal-title').innerText = 'Edit Withdrawal Tier';
+            } else {
+                document.getElementById('wo-id').disabled = false;
+                document.getElementById('withdraw-option-modal-title').innerText = 'Add Withdrawal Tier';
+            }
+            
+            document.getElementById('withdraw-option-modal').classList.remove('hidden');
+        }
+
+        window.closeWithdrawOptionModal = function() {
+            document.getElementById('withdraw-option-modal').classList.add('hidden');
+            editingWithdrawOptionId = null;
+        }
+
+        window.editWithdrawOption = function(optionId) {
+            openWithdrawOptionModal(optionId);
+        }
+
+        window.deleteWithdrawOption = async function(optionId) {
+            if (!confirm('Are you sure you want to delete this withdrawal tier?')) return;
+            
+            try {
+                const optionRef = doc(db, 'app_settings', 'withdraw_config', 'options', optionId);
+                await deleteDoc(optionRef);
+                
+                document.getElementById('settings-status').innerText = 'Tier deleted successfully!';
+                document.getElementById('settings-status').className = 'text-center mt-4 text-sm text-green-500';
+                
+                await loadSettings();
+            } catch (e) {
+                console.error('Error deleting option:', e);
+                document.getElementById('settings-status').innerText = 'Error deleting: ' + e.message;
+                document.getElementById('settings-status').className = 'text-center mt-4 text-sm text-red-500';
+            }
+        }
+
+        window.saveWithdrawOption = async function() {
+            const id = document.getElementById('wo-id').value.trim();
+            const label = document.getElementById('wo-label').value.trim();
+            const coins = parseInt(document.getElementById('wo-coins').value, 10);
+            const usdtAmount = parseFloat(document.getElementById('wo-usdt').value);
+            
+            if (!id) {
+                alert('Please enter a tier ID');
+                return;
+            }
+            if (isNaN(coins) || coins <= 0) {
+                alert('Please enter a valid coins amount');
+                return;
+            }
+            if (isNaN(usdtAmount) || usdtAmount <= 0) {
+                alert('Please enter a valid USDT amount');
+                return;
+            }
+            
+            const btn = document.getElementById('save-wo-btn');
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Saving...';
+            btn.disabled = true;
+            
+            try {
+                const optionRef = doc(db, 'app_settings', 'withdraw_config', 'options', id);
+                await setDoc(optionRef, {
+                    coins: coins,
+                    usdtAmount: usdtAmount,
+                    label: label,
+                    updatedAt: new Date().toISOString()
+                });
+                
+                closeWithdrawOptionModal();
+                document.getElementById('settings-status').innerText = 'Tier saved successfully!';
+                document.getElementById('settings-status').className = 'text-center mt-4 text-sm text-green-500';
+                
+                await loadSettings();
+            } catch (e) {
+                console.error('Error saving option:', e);
+                alert('Error saving: ' + e.message);
+            } finally {
+                btn.innerHTML = 'Save Tier';
+                btn.disabled = false;
+            }
+        }
+
+        window.saveBotConfig = async function() {
+            const adminBotToken = document.getElementById('setting-admin-bot-token').value.trim();
+            const adminChatId = document.getElementById('setting-admin-chat-id').value.trim();
+            const referralBotToken = document.getElementById('setting-referral-bot-token').value.trim();
+            const statusEl = document.getElementById('bot-config-status');
+            
+            try {
+                const botConfigRef = doc(db, 'app_settings', 'bot_config');
+                await setDoc(botConfigRef, {
+                    adminBotToken: adminBotToken,
+                    adminChatId: adminChatId,
+                    referralBotToken: referralBotToken,
+                    updatedAt: new Date().toISOString()
+                }, { merge: true });
+                
+                statusEl.innerText = '✅ Bot configuration saved!';
+                statusEl.className = 'text-sm text-green-600';
+            } catch (e) {
+                console.error('Error saving bot config:', e);
+                statusEl.innerText = '❌ Error: ' + e.message;
+                statusEl.className = 'text-sm text-red-600';
+            }
+        }
+
+        window.testAdminNotification = async function() {
+            const adminBotToken = document.getElementById('setting-admin-bot-token').value.trim();
+            const adminChatId = document.getElementById('setting-admin-chat-id').value.trim();
+            const statusEl = document.getElementById('bot-config-status');
+            
+            if (!adminBotToken || !adminChatId) {
+                statusEl.innerText = '⚠️ Please enter bot token and chat ID first';
+                statusEl.className = 'text-sm text-yellow-600';
+                return;
+            }
+            
+            statusEl.innerText = '📤 Sending test notification...';
+            statusEl.className = 'text-sm text-blue-600';
+            
+            try {
+                const message = `
+🧪 <b>Test Notification</b>
+
+✅ Admin notifications are working!
+
+📅 <b>Time:</b> ${new Date().toLocaleString('en-US', { timeZone: 'UTC' })} UTC
+🔧 <b>Source:</b> Rain USDT Admin Panel
+                `.trim();
+                
+                const response = await fetch(`https://api.telegram.org/bot${adminBotToken}/sendMessage`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        chat_id: adminChatId,
+                        text: message,
+                        parse_mode: 'HTML'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.ok) {
+                    statusEl.innerText = '✅ Test notification sent successfully!';
+                    statusEl.className = 'text-sm text-green-600';
+                } else {
+                    statusEl.innerText = '❌ Telegram error: ' + (data.description || 'Unknown error');
+                    statusEl.className = 'text-sm text-red-600';
+                }
+            } catch (e) {
+                console.error('Error sending test notification:', e);
+                statusEl.innerText = '❌ Error: ' + e.message;
+                statusEl.className = 'text-sm text-red-600';
+            }
+        }
+
+        function updateUsdtPreview() {
+            const usdt = parseFloat(document.getElementById('wo-usdt').value) || 0;
+            document.getElementById('wo-usdt-preview').innerText = `${usdt.toFixed(2)} USDT`;
+        }
+
+        // Add event listener for live USDT preview
+        document.getElementById('wo-usdt')?.addEventListener('input', updateUsdtPreview);
+
+        window.saveSettings = async function() {
+            const minCoins = parseInt(document.getElementById('setting-min-coins').value, 10);
+            const usdValue = parseFloat(document.getElementById('setting-usd-value').value);
+            const btn = document.getElementById('save-settings-btn');
+            const status = document.getElementById('settings-status');
+
+            if (isNaN(minCoins) || minCoins <= 0) {
+                status.innerText = 'Please enter a valid minimum coins value.';
+                status.className = 'text-center mt-4 text-sm text-red-500';
+                return;
+            }
+            if (isNaN(usdValue) || usdValue <= 0) {
+                status.innerText = 'Please enter a valid USD value.';
+                status.className = 'text-center mt-4 text-sm text-red-500';
+                return;
+            }
+
+            try {
+                const settingsRef = doc(db, 'app_settings', 'withdraw_config');
+                await setDoc(settingsRef, {
+                    minCoins: minCoins,
+                    usdValue: usdValue,
+                    updatedAt: new Date().toISOString()
+                }, { merge: true });
+
+                status.innerText = 'Settings saved successfully!';
+                status.className = 'text-center mt-4 text-sm text-green-500';
+            } catch (e) {
+                console.error('Error saving settings:', e);
+                status.innerText = 'Error saving settings: ' + e.message;
+                status.className = 'text-center mt-4 text-sm text-red-500';
+            }
+        }
+
+        // Bot config setter removed
+
+        // Data loading is now handled in onAuthStateChanged after admin login
+
+        // ✨ NOTIFICATION BANNER MANAGEMENT
+        window.loadNotificationSettings = async function() {
+            try {
+                const notifDoc = await getDoc(doc(db, 'app_settings', 'notification_banner'));
+                if (notifDoc.exists()) {
+                    const data = notifDoc.data();
+                    document.getElementById('notification-enabled').checked = data.enabled || false;
+                    document.getElementById('notification-title').value = data.title || '';
+                    document.getElementById('notification-message').value = data.message || '';
+                    // Update preview
+                    document.getElementById('preview-title').innerText = data.title || 'Important Update';
+                    document.getElementById('preview-message').innerText = data.message || 'New withdrawal options are now available!';
+                }
+            } catch (e) {
+                console.error('Error loading notification settings:', e);
+            }
+        };
+
+        window.saveNotificationSettings = async function() {
+            const statusEl = document.getElementById('notification-status');
+            try {
+                const enabled = document.getElementById('notification-enabled').checked;
+                const title = document.getElementById('notification-title').value.trim();
+                const message = document.getElementById('notification-message').value.trim();
+
+                if (enabled && !message) {
+                    statusEl.innerHTML = '<span class="text-red-500">⚠️ Message is required when notification is enabled</span>';
+                    return;
+                }
+
+                await setDoc(doc(db, 'app_settings', 'notification_banner'), {
+                    enabled: enabled,
+                    title: title || 'Announcement',
+                    message: message,
+                    updatedAt: new Date().toISOString()
+                });
+
+                // Update preview
+                document.getElementById('preview-title').innerText = title || 'Important Update';
+                document.getElementById('preview-message').innerText = message || 'No message set';
+
+                statusEl.innerHTML = '<span class="text-green-600">✅ Notification saved successfully!</span>';
+                setTimeout(() => { statusEl.innerHTML = ''; }, 3000);
+            } catch (e) {
+                console.error('Error saving notification:', e);
+                statusEl.innerHTML = `<span class="text-red-500">❌ Error: ${e.message}</span>`;
+            }
+        };
+
+        // Live preview on input
+        document.getElementById('notification-title')?.addEventListener('input', (e) => {
+            document.getElementById('preview-title').innerText = e.target.value || 'Important Update';
+        });
+        document.getElementById('notification-message')?.addEventListener('input', (e) => {
+            document.getElementById('preview-message').innerText = e.target.value || 'New withdrawal options are now available!';
+        });
+
+        // ✨ FEATURED APPS MANAGEMENT
+        let featuredAppsData = [];
+
+        window.loadFeaturedAppsSettings = async function() {
+            try {
+                const appsDoc = await getDoc(doc(db, 'app_settings', 'featured_apps'));
+                if (appsDoc.exists()) {
+                    const data = appsDoc.data();
+                    document.getElementById('featured-apps-enabled').checked = data.enabled || false;
+                    featuredAppsData = data.apps || [];
+                } else {
+                    featuredAppsData = [];
+                }
+                renderFeaturedAppsAdmin();
+            } catch (e) {
+                console.error('Error loading featured apps:', e);
+            }
+        };
+
+        function renderFeaturedAppsAdmin() {
+            const container = document.getElementById('featured-apps-list-admin');
+            if (featuredAppsData.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-center py-6 italic">No featured apps added yet. Click "Add App" to get started.</p>';
+                return;
+            }
+
+            container.innerHTML = featuredAppsData.map((app, index) => `
+                <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-purple-300 transition">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center text-xl">${app.icon || '🚀'}</div>
+                        <div>
+                            <p class="font-bold text-gray-800">${app.name}</p>
+                            <p class="text-xs text-gray-500">${app.description || 'No description'}</p>
+                            <p class="text-xs text-purple-500 font-mono mt-1">${app.link}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="editFeaturedApp(${index})" class="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-sm hover:bg-blue-200"><i class="fas fa-edit"></i></button>
+                        <button onclick="deleteFeaturedApp(${index})" class="px-3 py-1 bg-red-100 text-red-700 rounded-lg text-sm hover:bg-red-200"><i class="fas fa-trash"></i></button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        window.openFeaturedAppModal = function(index = null) {
+            const name = index !== null ? featuredAppsData[index].name : '';
+            const description = index !== null ? featuredAppsData[index].description : '';
+            const link = index !== null ? featuredAppsData[index].link : '';
+            const icon = index !== null ? featuredAppsData[index].icon : '🚀';
+
+            const isEdit = index !== null;
+            const html = `
+                <div class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center" id="featured-app-modal" onclick="if(event.target===this)closeFeaturedAppModal()">
+                    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4">${isEdit ? 'Edit App' : 'Add Featured App'}</h3>
+                        <div class="space-y-3">
+                            <div>
+                                <label class="block text-sm font-bold text-gray-600 mb-1">Icon (Emoji)</label>
+                                <input type="text" id="app-icon" value="${icon}" class="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:border-purple-500" placeholder="🚀" maxlength="2">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-600 mb-1">App Name</label>
+                                <input type="text" id="app-name" value="${name}" class="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:border-purple-500" placeholder="My Cool Bot">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-600 mb-1">Description</label>
+                                <input type="text" id="app-description" value="${description}" class="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:border-purple-500" placeholder="Earn USDT by playing games">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-600 mb-1">Link</label>
+                                <input type="text" id="app-link" value="${link}" class="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:border-purple-500" placeholder="https://t.me/mybot">
+                            </div>
+                            <div class="flex space-x-3 pt-2">
+                                <button onclick="saveFeaturedApp(${index})" class="flex-1 px-4 py-3 bg-purple-600 text-white font-bold rounded-lg hover:bg-purple-700 transition">
+                                    <i class="fas fa-save mr-2"></i>${isEdit ? 'Update' : 'Add'} App
+                                </button>
+                                <button onclick="closeFeaturedAppModal()" class="px-4 py-3 bg-gray-200 text-gray-700 font-bold rounded-lg hover:bg-gray-300 transition">Cancel</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', html);
+        };
+
+        window.closeFeaturedAppModal = function() {
+            const modal = document.getElementById('featured-app-modal');
+            if (modal) modal.remove();
+        };
+
+        window.saveFeaturedApp = async function(index) {
+            const name = document.getElementById('app-name').value.trim();
+            const description = document.getElementById('app-description').value.trim();
+            const link = document.getElementById('app-link').value.trim();
+            const icon = document.getElementById('app-icon').value.trim() || '🚀';
+
+            if (!name || !link) {
+                alert('App name and link are required!');
+                return;
+            }
+
+            const appData = { name, description, link, icon };
+
+            if (index !== null) {
+                featuredAppsData[index] = appData;
+            } else {
+                featuredAppsData.push(appData);
+            }
+
+            try {
+                const enabled = document.getElementById('featured-apps-enabled').checked;
+                await setDoc(doc(db, 'app_settings', 'featured_apps'), {
+                    enabled: enabled,
+                    apps: featuredAppsData,
+                    updatedAt: new Date().toISOString()
+                });
+                closeFeaturedAppModal();
+                renderFeaturedAppsAdmin();
+                
+                const statusEl = document.getElementById('featured-apps-status');
+                statusEl.innerHTML = '<span class="text-green-600">✅ App saved successfully!</span>';
+                setTimeout(() => { statusEl.innerHTML = ''; }, 3000);
+            } catch (e) {
+                console.error('Error saving featured app:', e);
+                alert('Error saving app: ' + e.message);
+            }
+        };
+
+        window.editFeaturedApp = function(index) {
+            window.openFeaturedAppModal(index);
+        };
+
+        window.deleteFeaturedApp = async function(index) {
+            if (!confirm(`Delete "${featuredAppsData[index].name}"?`)) return;
+
+            featuredAppsData.splice(index, 1);
+
+            try {
+                const enabled = document.getElementById('featured-apps-enabled').checked;
+                await setDoc(doc(db, 'app_settings', 'featured_apps'), {
+                    enabled: enabled,
+                    apps: featuredAppsData,
+                    updatedAt: new Date().toISOString()
+                });
+                renderFeaturedAppsAdmin();
+                
+                const statusEl = document.getElementById('featured-apps-status');
+                statusEl.innerHTML = '<span class="text-green-600">✅ App deleted successfully!</span>';
+                setTimeout(() => { statusEl.innerHTML = ''; }, 3000);
+            } catch (e) {
+                console.error('Error deleting featured app:', e);
+                alert('Error: ' + e.message);
+            }
+        };
+
+        window.saveFeaturedAppsEnabled = async function() {
+            try {
+                const enabled = document.getElementById('featured-apps-enabled').checked;
+                await setDoc(doc(db, 'app_settings', 'featured_apps'), {
+                    enabled: enabled,
+                    apps: featuredAppsData,
+                    updatedAt: new Date().toISOString()
+                });
+            } catch (e) {
+                console.error('Error toggling featured apps:', e);
+            }
+        };
+
+    </script>
+
+    <script>
+      window.escapeAttr = function (str) {
+        if (!str) return '';
+        return str.toString()
+          .replace(/\\/g, '\\\\')
+          .replace(/'/g, "\\'")
+          .replace(/"/g, '&quot;');
+      };
+
+      window.getButtonsFromContainer = function (containerId) {
+        const container = document.getElementById(containerId);
+        if (!container) return [];
+        return Array.from(container.children)
+          .map(row => {
+            const labelEl = row.querySelector('[data-btn-label]');
+            const urlEl = row.querySelector('[data-btn-url]');
+            if (!labelEl || !urlEl) return null;
+            const label = labelEl.value.trim();
+            const url = urlEl.value.trim();
+            if (!label || !url) return null;
+            const normalized = url.startsWith('http://') || url.startsWith('https://') ? url : 'https://' + url;
+            return { text: label, url: normalized };
+          })
+          .filter(Boolean);
+      };
+
+      function toggleMobileMenu() {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('mobile-overlay');
+        const icon = document.getElementById('hamburger-icon');
+        const open = sidebar.classList.contains('-translate-x-full');
+        sidebar.classList.toggle('-translate-x-full', !open);
+        sidebar.classList.toggle('translate-x-0', open);
+        overlay.classList.toggle('hidden', !open);
+        icon.classList.toggle('fa-bars', !open);
+        icon.classList.toggle('fa-times', open);
+      }
+
+      function closeMobileMenu() {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('mobile-overlay');
+        const icon = document.getElementById('hamburger-icon');
+        sidebar.classList.add('-translate-x-full');
+        sidebar.classList.remove('translate-x-0');
+        overlay.classList.add('hidden');
+        icon.classList.add('fa-bars');
+        icon.classList.remove('fa-times');
+      }
+
+      function showTab(tabName) {
+        ['home', 'withdrawals', 'users', 'tasks', 'settings', 'notification', 'featured-apps'].forEach(t => {
+          document.getElementById('tab-' + t).classList.add('hidden');
+          const navBtn = document.getElementById('nav-' + t);
+          if (navBtn) {
+            navBtn.classList.remove('bg-blue-50', 'text-blue-700');
+            navBtn.classList.add('text-gray-600');
+          }
+        });
+
+        document.getElementById('tab-' + tabName).classList.remove('hidden');
+        const activeBtn = document.getElementById('nav-' + tabName);
+        if (activeBtn) {
+          activeBtn.classList.add('bg-blue-50', 'text-blue-700');
+          activeBtn.classList.remove('text-gray-600');
+        }
+      }
+
+      showTab('home');
+    </script>
+    <script>
+        const ADMIN_API_BASE = `${window.location.origin}/api/admin`;
+        let adminToken = localStorage.getItem('tapbot_admin_token') || '';
+        let adminUsersCache = [];
+        let adminDisplayedUsers = 0;
+        let adminTasks = [];
+        let adminFeaturedAppsData = [];
+        let adminCurrentEditingUserId = null;
+        let adminCurrentMessageUserId = null;
+        let adminCurrentMessageUserName = null;
+        let adminBotConfigCache = null;
+        let adminWithdrawalData = [];
+        let adminEditingTaskId = null;
+        const ADMIN_USERS_PER_PAGE = 50;
+
+        function setAdminStatus(message, className = '') {
+            const el = document.getElementById('db-status');
+            if (el) {
+                el.className = className || el.className;
+                el.innerHTML = message;
+            }
+        }
+
+        async function adminApi(path, options = {}) {
+            const headers = {
+                'Content-Type': 'application/json',
+                ...(options.headers || {})
+            };
+
+            if (adminToken) {
+                headers.Authorization = `Bearer ${adminToken}`;
+            }
+
+            const response = await fetch(`${ADMIN_API_BASE}${path}`, {
+                ...options,
+                headers
+            });
+
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(data.error || 'Admin request failed');
+            }
+
+            return data;
+        }
+
+        function showAdminDashboard(email) {
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('dashboard').classList.remove('hidden');
+            setAdminStatus(`<span class="w-2 h-2 rounded-full bg-green-500 mr-2 inline-block"></span> Connected as ${email}`);
+        }
+
+        function showAdminLogin() {
+            document.getElementById('login-screen').classList.remove('hidden');
+            document.getElementById('dashboard').classList.add('hidden');
+        }
+
+        async function verifyAdminSession() {
+            if (!adminToken) {
+                showAdminLogin();
+                return;
+            }
+
+            try {
+                const data = await adminApi('/me');
+                showAdminDashboard(data.admin.email);
+                await Promise.all([
+                    window.loadWithdrawals(),
+                    window.loadUsers(true),
+                    window.loadSettings()
+                ]);
+            } catch (error) {
+                localStorage.removeItem('tapbot_admin_token');
+                adminToken = '';
+                showAdminLogin();
+            }
+        }
+
+        function renderAdminWithdrawals(list) {
+            const tbody = document.getElementById('withdrawals-table-body');
+            if (!list.length) {
+                tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-gray-500">No requests found.</td></tr>';
+                return;
+            }
+
+            adminWithdrawalData = list;
+            tbody.innerHTML = list.map((item, index) => `
+                <tr class="hover:bg-gray-50 transition">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${new Date(item.timestamp || item.createdAt).toLocaleDateString()}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium text-gray-900">${window.escapeAttr(item.name) || 'Unknown'}</div>
+                        <div class="text-xs text-gray-500">ID: ${window.escapeAttr(item.userId)}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <span class="font-bold">${(item.amountCoins || 0).toLocaleString()}</span> Coins<br>
+                        <span class="text-xs text-green-600">$${(item.amountUsd || 0).toFixed(2)} USDT</span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-xs text-gray-500 max-w-xs truncate cursor-pointer hover:text-blue-600" onclick="navigator.clipboard.writeText('${window.escapeAttr(item.walletAddress || '')}'); alert('Address copied!')">
+                        ${window.escapeAttr(item.walletAddress || '')} <i class="fas fa-copy ml-1"></i>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${item.status === 'Pending' ? 'status-pending' : (item.status === 'Paid' ? 'status-paid' : 'status-rejected')}">
+                            ${item.status}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium" id="btn-wd-${index}">
+                        <button onclick="openUserInfoModal('${window.escapeAttr(item.userId)}')" class="text-indigo-600 hover:text-indigo-900 mr-3 font-bold" title="View user details">
+                            <i class="fas fa-info-circle"></i> Info
+                        </button>
+                        ${item.status === 'Pending' ? `
+                            <button onclick="processWithdrawalByIndex(${index}, 'Paid')" class="text-green-600 hover:text-green-900 mr-3 font-bold">Approve</button>
+                            <button onclick="processWithdrawalByIndex(${index}, 'Rejected')" class="text-red-600 hover:text-red-900 font-bold">Reject</button>
+                        ` : '<span class="text-gray-400">Completed</span>'}
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function renderAdminUsers(list) {
+            const tbody = document.getElementById('users-table-body');
+            if (!list.length) {
+                tbody.innerHTML = '<tr><td colspan="8" class="px-6 py-4 text-center text-gray-500">No users found.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = list.map((user, index) => `
+                <tr class="hover:bg-gray-50 transition">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-400">${index + 1}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${window.escapeAttr(user.name) || 'Player'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${window.escapeAttr(user.id)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-teal-600 font-bold">${(user.score || 0).toLocaleString()}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-green-700 font-bold">${user.referralCount || 0}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-blue-700 font-bold">${(user.completedTasks || []).length}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${user.lastActive ? new Date(user.lastActive).toLocaleDateString() : 'N/A'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        <div class="flex space-x-2">
+                            <button onclick="openMessageModal('${window.escapeAttr(user.id)}', '${window.escapeAttr(user.name)}')" class="text-green-600 hover:text-green-900 font-bold">
+                                <i class="fas fa-paper-plane"></i> Message
+                            </button>
+                            <button onclick="openEditUserModal('${window.escapeAttr(user.id)}', ${user.score || 0}, '${window.escapeAttr(user.name)}')" class="text-blue-600 hover:text-blue-900 font-bold">
+                                <i class="fas fa-edit"></i> Edit
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+
+            const cacheStatus = document.getElementById('users-cache-status');
+            if (cacheStatus) {
+                cacheStatus.innerText = `(${adminUsersCache.length} cached)`;
+            }
+        }
+
+        function updateAdminStats() {
+            document.getElementById('stat-total-users').innerText = adminUsersCache.length;
+            const pending = adminWithdrawalData.filter(w => w.status === 'Pending').length;
+            const paidTotal = adminWithdrawalData
+                .filter(w => w.status === 'Paid')
+                .reduce((sum, item) => sum + (item.amountUsd || 0), 0);
+
+            document.getElementById('stat-pending-wd').innerText = pending;
+            document.getElementById('stat-total-paid').innerText = `$${paidTotal.toFixed(2)}`;
+        }
+
+        function updateAdminLoadMoreButton() {
+            const container = document.getElementById('load-more-container');
+            if (!container) return;
+
+            if (adminDisplayedUsers >= adminUsersCache.length) {
+                container.innerHTML = `<p class="text-gray-500 text-sm text-center py-3">All ${adminUsersCache.length} users loaded</p>`;
+                return;
+            }
+
+            container.innerHTML = `
+                <button onclick="loadMoreUsers()" class="w-full py-3 bg-blue-100 text-blue-700 font-semibold rounded-lg hover:bg-blue-200 transition">
+                    <i class="fas fa-chevron-down mr-2"></i>Show More (${adminDisplayedUsers} of ${adminUsersCache.length} displayed)
+                </button>
+            `;
+        }
+
+        function renderAdminTasks(tasks) {
+            const tbody = document.getElementById('tasks-table-body');
+            if (!tasks.length) {
+                tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">
+                    <i class="fas fa-clipboard-list text-4xl text-gray-300 mb-2"></i>
+                    <p>No tasks created yet</p>
+                    <p class="text-xs text-gray-400">Click "Add Task" to create your first task</p>
+                </td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = tasks.map(task => `
+                <tr class="${task.active === false ? 'bg-gray-50 opacity-60' : ''}">
+                    <td class="px-6 py-4 text-sm font-mono text-gray-600">${window.escapeAttr(task.id)}</td>
+                    <td class="px-6 py-4">
+                        <div class="font-medium text-gray-800">${window.escapeAttr(task.title)}</div>
+                        <div class="text-xs text-gray-500">${window.escapeAttr(task.description || '')}</div>
+                    </td>
+                    <td class="px-6 py-4 font-bold text-teal-600">${(task.reward || 0).toLocaleString()}</td>
+                    <td class="px-6 py-4 text-sm text-gray-600">${window.escapeAttr(task.type || 'other')}</td>
+                    <td class="px-6 py-4">
+                        ${task.active !== false
+                            ? '<span class="px-2 py-1 text-xs font-bold rounded-full bg-green-100 text-green-700">Active</span>'
+                            : '<span class="px-2 py-1 text-xs font-bold rounded-full bg-gray-200 text-gray-600">Inactive</span>'}
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="flex space-x-2">
+                            <button onclick="editTask('${window.escapeAttr(task.id)}')" class="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded hover:bg-blue-200">
+                                <i class="fas fa-edit"></i> Edit
+                            </button>
+                            <button onclick="deleteTask('${window.escapeAttr(task.id)}')" class="px-3 py-1 bg-red-100 text-red-700 text-xs font-bold rounded hover:bg-red-200">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function renderAdminWithdrawOptions() {
+            const container = document.getElementById('withdraw-options-list');
+            if (!withdrawOptionsData.length) {
+                container.innerHTML = `
+                    <div class="text-center py-8 text-gray-500">
+                        <i class="fas fa-inbox text-4xl mb-2"></i>
+                        <p>No withdrawal tiers configured.</p>
+                        <p class="text-sm">Click "Add Tier" to create your first option.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = withdrawOptionsData.map((opt, index) => {
+                const usdtValue = opt.usdtAmount || 0;
+                const tierIcons = ['🥉', '🥈', '🥇', '💎', '👑'];
+                return `
+                    <div class="flex items-center justify-between bg-gray-50 rounded-lg p-4 border border-gray-200 hover:border-blue-300 transition">
+                        <div class="flex items-center space-x-4">
+                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-400 to-cyan-500 flex items-center justify-center text-2xl">
+                                ${tierIcons[Math.min(index, tierIcons.length - 1)]}
+                            </div>
+                            <div>
+                                <div class="flex items-center space-x-2">
+                                    <p class="font-bold text-gray-800">$${usdtValue.toFixed(2)} USDT</p>
+                                    ${opt.label ? `<span class="px-2 py-0.5 bg-purple-100 text-purple-600 text-xs rounded-full">${window.escapeAttr(opt.label)}</span>` : ''}
+                                </div>
+                                <p class="text-sm text-gray-500">${(opt.coins || 0).toLocaleString()} coins → $${usdtValue.toFixed(2)} USDT</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <button onclick="editWithdrawOption('${window.escapeAttr(opt.id)}')" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Edit">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button onclick="deleteWithdrawOption('${window.escapeAttr(opt.id)}')" class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition" title="Delete">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderAdminFeaturedApps() {
+            const container = document.getElementById('featured-apps-list-admin');
+            if (!adminFeaturedAppsData.length) {
+                container.innerHTML = '<p class="text-gray-500 text-center py-6 italic">No featured apps added yet. Click "Add App" to get started.</p>';
+                return;
+            }
+
+            container.innerHTML = adminFeaturedAppsData.map((app, index) => `
+                <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-purple-300 transition">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center text-xl">${window.escapeAttr(app.icon || '🚀')}</div>
+                        <div>
+                            <p class="font-bold text-gray-800">${window.escapeAttr(app.name)}</p>
+                            <p class="text-xs text-gray-500">${window.escapeAttr(app.description || 'No description')}</p>
+                            <p class="text-xs text-purple-500 font-mono mt-1">${window.escapeAttr(app.link)}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="editFeaturedApp(${index})" class="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-sm hover:bg-blue-200"><i class="fas fa-edit"></i></button>
+                        <button onclick="deleteFeaturedApp(${index})" class="px-3 py-1 bg-red-100 text-red-700 rounded-lg text-sm hover:bg-red-200"><i class="fas fa-trash"></i></button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function populateAdminAdConfigForm(config = {}) {
+            const merged = {
+                zoneId: '10803241',
+                sdkName: 'show_10803241',
+                rewardCoins: 50,
+                networkKey: 'richads',
+                rewardedInterstitialEnabled: true,
+                rewardedPopupEnabled: true,
+                inAppEnabled: true,
+                inAppSettings: {
+                    frequency: 2,
+                    capping: 0.1,
+                    interval: 30,
+                    timeout: 5,
+                    everyPage: false
+                },
+                ...config
+            };
+
+            const inAppSettings = {
+                frequency: 2,
+                capping: 0.1,
+                interval: 30,
+                timeout: 5,
+                everyPage: false,
+                ...(config.inAppSettings || {})
+            };
+
+            document.getElementById('setting-ad-zone-id').value = merged.zoneId;
+            document.getElementById('setting-ad-sdk-name').value = merged.sdkName;
+            document.getElementById('setting-ad-reward-coins').value = merged.rewardCoins;
+            document.getElementById('setting-ad-network').value = merged.networkKey;
+            document.getElementById('setting-ad-interstitial-enabled').checked = merged.rewardedInterstitialEnabled !== false;
+            document.getElementById('setting-ad-popup-enabled').checked = merged.rewardedPopupEnabled !== false;
+            document.getElementById('setting-ad-inapp-enabled').checked = merged.inAppEnabled !== false;
+            document.getElementById('setting-ad-frequency').value = inAppSettings.frequency;
+            document.getElementById('setting-ad-capping').value = inAppSettings.capping;
+            document.getElementById('setting-ad-interval').value = inAppSettings.interval;
+            document.getElementById('setting-ad-timeout').value = inAppSettings.timeout;
+            document.getElementById('setting-ad-every-page').checked = Boolean(inAppSettings.everyPage);
+
+            if (typeof window.renderAdConfigPreview === 'function') {
+                window.renderAdConfigPreview();
+            }
+        }
+
+        window.toggleAuthMode = function() {
+            isLoginMode = !isLoginMode;
+            document.getElementById('login-form').classList.toggle('hidden', !isLoginMode);
+            document.getElementById('register-form').classList.toggle('hidden', isLoginMode);
+            document.getElementById('toggle-mode-text').innerText = isLoginMode ? 'New admin?' : 'Admin accounts are backend-managed.';
+            document.getElementById('toggle-mode-btn').innerText = isLoginMode ? 'Use Login' : 'Back';
+            document.getElementById('login-error').classList.add('hidden');
+            document.getElementById('login-success').classList.add('hidden');
+        };
+
+        window.adminLogin = async function() {
+            const email = document.getElementById('admin-email').value.trim();
+            const password = document.getElementById('admin-password').value;
+            const errorEl = document.getElementById('login-error');
+            const btn = document.getElementById('login-btn');
+
+            if (!email || !password) {
+                errorEl.innerText = 'Please enter email and password';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Logging in...';
+            errorEl.classList.add('hidden');
+
+            try {
+                const data = await adminApi('/login', {
+                    method: 'POST',
+                    body: JSON.stringify({ email, password })
+                });
+
+                adminToken = data.token;
+                localStorage.setItem('tapbot_admin_token', adminToken);
+                showAdminDashboard(data.admin.email);
+                await Promise.all([
+                    window.loadWithdrawals(),
+                    window.loadUsers(true),
+                    window.loadSettings()
+                ]);
+            } catch (error) {
+                errorEl.innerText = error.message;
+                errorEl.classList.remove('hidden');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<span>Login</span>';
+            }
+        };
+
+        window.adminRegister = async function() {
+            const successEl = document.getElementById('login-success');
+            successEl.innerText = 'Admin registration is managed on the backend. Set ADMIN_EMAIL and ADMIN_PASSWORD in the server environment.';
+            successEl.classList.remove('hidden');
+        };
+
+        window.logout = function() {
+            adminToken = '';
+            localStorage.removeItem('tapbot_admin_token');
+            location.reload();
+        };
+
+        window.loadWithdrawals = async function() {
+            const tbody = document.getElementById('withdrawals-table-body');
+            tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-gray-500">Loading...</td></tr>';
+
+            try {
+                const data = await adminApi('/withdrawals');
+                renderAdminWithdrawals(data.withdrawals || []);
+                updateAdminStats();
+            } catch (error) {
+                tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-4 text-center text-red-500">Error loading data: ${error.message}</td></tr>`;
+            }
+        };
+
+        window.loadUsers = async function(forceRefresh = false) {
+            const tbody = document.getElementById('users-table-body');
+            if (adminUsersCache.length && !forceRefresh) {
+                adminDisplayedUsers = Math.min(ADMIN_USERS_PER_PAGE, adminUsersCache.length);
+                renderAdminUsers(adminUsersCache.slice(0, adminDisplayedUsers));
+                updateAdminLoadMoreButton();
+                updateAdminStats();
+                return;
+            }
+
+            tbody.innerHTML = '<tr><td colspan="8" class="px-6 py-4 text-center text-gray-500">Loading...</td></tr>';
+            try {
+                const data = await adminApi('/users');
+                adminUsersCache = data.users || [];
+                adminDisplayedUsers = Math.min(ADMIN_USERS_PER_PAGE, adminUsersCache.length);
+                renderAdminUsers(adminUsersCache.slice(0, adminDisplayedUsers));
+                updateAdminLoadMoreButton();
+                updateAdminStats();
+            } catch (error) {
+                tbody.innerHTML = `<tr><td colspan="8" class="px-6 py-4 text-center text-red-500">Error loading users: ${error.message}</td></tr>`;
+            }
+        };
+
+        window.loadMoreUsers = function() {
+            adminDisplayedUsers = Math.min(adminDisplayedUsers + ADMIN_USERS_PER_PAGE, adminUsersCache.length);
+            renderAdminUsers(adminUsersCache.slice(0, adminDisplayedUsers));
+            updateAdminLoadMoreButton();
+        };
+
+        window.refreshUsers = function() {
+            window.loadUsers(true);
+        };
+
+        window.countTaskCompletions = function() {
+            return adminUsersCache.reduce((acc, user) => {
+                (user.completedTasks || []).forEach(taskId => {
+                    acc[taskId] = (acc[taskId] || 0) + 1;
+                });
+                return acc;
+            }, {});
+        };
+
+        window.openUserInfoModal = async function(userId) {
+            const modal = document.getElementById('user-info-modal');
+            const content = document.getElementById('user-info-content');
+            modal.classList.remove('hidden');
+            const user = adminUsersCache.find(item => item.id === userId);
+
+            if (!user) {
+                content.innerHTML = '<div class="text-center py-10 text-red-500"><i class="fas fa-exclamation-triangle text-3xl mb-2"></i><p>No data found for this user.</p></div>';
+                return;
+            }
+
+            content.innerHTML = `
+                <div class="flex items-center space-x-4 mb-5">
+                    <div class="w-16 h-16 rounded-full border-2 border-blue-200 bg-blue-50 flex items-center justify-center text-2xl font-bold text-blue-700">${window.escapeAttr((user.name || 'U')[0])}</div>
+                    <div>
+                        <h4 class="text-xl font-bold text-gray-800">${window.escapeAttr(user.name || 'Unknown')}</h4>
+                        <p class="text-sm text-gray-500">@${window.escapeAttr(user.username || 'N/A')}</p>
+                        <p class="text-xs text-gray-400">TG ID: ${window.escapeAttr(user.id)}</p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3 mb-5">
+                    <div class="bg-teal-50 rounded-lg p-3 text-center border border-teal-200">
+                        <p class="text-xs text-teal-600 font-semibold uppercase">Total Coins</p>
+                        <p class="text-2xl font-bold text-teal-700">${(user.score || 0).toLocaleString()}</p>
+                    </div>
+                    <div class="bg-blue-50 rounded-lg p-3 text-center border border-blue-200">
+                        <p class="text-xs text-blue-600 font-semibold uppercase">Daily Taps</p>
+                        <p class="text-2xl font-bold text-blue-700">${(user.dailyTaps || 0).toLocaleString()}</p>
+                    </div>
+                    <div class="bg-purple-50 rounded-lg p-3 text-center border border-purple-200">
+                        <p class="text-xs text-purple-600 font-semibold uppercase">Tasks Done</p>
+                        <p class="text-2xl font-bold text-purple-700">${(user.completedTasks || []).length}</p>
+                    </div>
+                    <div class="bg-green-50 rounded-lg p-3 text-center border border-green-200">
+                        <p class="text-xs text-green-600 font-semibold uppercase">Lifetime Taps</p>
+                        <p class="text-2xl font-bold text-green-700">${(user.totalTapsAllTime || 0).toLocaleString()}</p>
+                    </div>
+                </div>
+                <div class="border rounded-lg p-3">
+                    <p class="font-bold text-gray-700 mb-2"><i class="fas fa-video text-amber-500 mr-2"></i>Ad Rewards</p>
+                    <pre class="text-xs text-gray-600 whitespace-pre-wrap">${window.escapeAttr(JSON.stringify(user.adRewards || {}, null, 2))}</pre>
+                </div>
+            `;
+        };
+
+        window.closeUserInfoModal = function() {
+            document.getElementById('user-info-modal').classList.add('hidden');
+        };
+
+        window.processWithdrawalByIndex = async function(index, action) {
+            const withdrawal = adminWithdrawalData[index];
+            if (!withdrawal) {
+                return;
+            }
+
+            if (!confirm(`Are you sure you want to ${action} this request?`)) return;
+
+            try {
+                await adminApi(`/withdrawals/${withdrawal._id || withdrawal.id}`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ status: action })
+                });
+                await window.loadWithdrawals();
+                alert(`Withdrawal ${action}!`);
+            } catch (error) {
+                alert(error.message);
+            }
+        };
+
+        window.openEditUserModal = function(userId, currentScore, userName) {
+            adminCurrentEditingUserId = userId;
+            document.getElementById('edit-user-name').value = userName;
+            document.getElementById('edit-user-id').value = userId;
+            document.getElementById('edit-user-score').value = currentScore;
+            document.getElementById('edit-user-modal').classList.remove('hidden');
+        };
+
+        window.closeEditUserModal = function() {
+            adminCurrentEditingUserId = null;
+            document.getElementById('edit-user-modal').classList.add('hidden');
+        };
+
+        window.saveUserChanges = async function() {
+            const totalCoins = parseInt(document.getElementById('edit-user-score').value, 10);
+            const btn = document.getElementById('save-user-btn');
+            if (!adminCurrentEditingUserId || !Number.isFinite(totalCoins) || totalCoins < 0) {
+                alert('Please enter a valid number for total coins.');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerText = 'Saving...';
+            try {
+                await adminApi(`/users/${adminCurrentEditingUserId}`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ totalCoins })
+                });
+                await window.loadUsers(true);
+                closeEditUserModal();
+            } catch (error) {
+                alert(error.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = 'Save Changes';
+            }
+        };
+
+        window.loadTasks = async function() {
+            const tbody = document.getElementById('tasks-table-body');
+            tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-gray-500">Loading tasks...</td></tr>';
+            try {
+                const data = await adminApi('/tasks');
+                adminTasks = data.tasks || [];
+                renderAdminTasks(adminTasks);
+            } catch (error) {
+                tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-4 text-center text-red-500">Error loading tasks: ${error.message}</td></tr>`;
+            }
+        };
+
+        window.openAddTaskModal = function() {
+            adminEditingTaskId = null;
+            document.getElementById('task-modal-title').innerText = 'Add New Task';
+            document.getElementById('task-id').value = '';
+            document.getElementById('task-id').disabled = false;
+            document.getElementById('task-title').value = '';
+            document.getElementById('task-description').value = '';
+            document.getElementById('task-reward').value = '';
+            document.getElementById('task-link').value = '';
+            document.getElementById('task-type').value = 'telegram_channel';
+            document.getElementById('task-icon').value = 'telegram';
+            document.getElementById('task-active').checked = true;
+            document.getElementById('task-modal').classList.remove('hidden');
+        };
+
+        window.closeTaskModal = function() {
+            adminEditingTaskId = null;
+            document.getElementById('task-modal').classList.add('hidden');
+        };
+
+        window.editTask = function(taskId) {
+            const task = adminTasks.find(item => item.id === taskId);
+            if (!task) return;
+            adminEditingTaskId = taskId;
+            document.getElementById('task-modal-title').innerText = 'Edit Task';
+            document.getElementById('task-id').value = task.id;
+            document.getElementById('task-id').disabled = true;
+            document.getElementById('task-title').value = task.title || '';
+            document.getElementById('task-description').value = task.description || '';
+            document.getElementById('task-reward').value = task.reward || 0;
+            document.getElementById('task-link').value = task.link || '';
+            document.getElementById('task-type').value = task.type || 'telegram_channel';
+            document.getElementById('task-icon').value = task.icon || 'telegram';
+            document.getElementById('task-active').checked = task.active !== false;
+            document.getElementById('task-modal').classList.remove('hidden');
+        };
+
+        window.saveTask = async function() {
+            const taskId = document.getElementById('task-id').value.trim();
+            const task = {
+                id: taskId,
+                title: document.getElementById('task-title').value.trim(),
+                description: document.getElementById('task-description').value.trim(),
+                reward: parseInt(document.getElementById('task-reward').value, 10),
+                link: document.getElementById('task-link').value.trim(),
+                type: document.getElementById('task-type').value,
+                icon: document.getElementById('task-icon').value,
+                active: document.getElementById('task-active').checked
+            };
+
+            if (!task.id || !task.title || !task.link || !Number.isFinite(task.reward) || task.reward <= 0) {
+                alert('Task ID, title, reward, and link are required');
+                return;
+            }
+
+            const nextTasks = adminEditingTaskId
+                ? adminTasks.map(item => item.id === adminEditingTaskId ? task : item)
+                : [...adminTasks, task];
+
+            if (!adminEditingTaskId && adminTasks.some(item => item.id === task.id)) {
+                alert('A task with this ID already exists');
+                return;
+            }
+
+            await adminApi('/tasks', {
+                method: 'PUT',
+                body: JSON.stringify({ tasks: nextTasks })
+            });
+
+            adminTasks = nextTasks;
+            closeTaskModal();
+            renderAdminTasks(adminTasks);
+        };
+
+        window.deleteTask = async function(taskId) {
+            if (!confirm(`Are you sure you want to delete task "${taskId}"?`)) return;
+            const nextTasks = adminTasks.filter(item => item.id !== taskId);
+            await adminApi('/tasks', {
+                method: 'PUT',
+                body: JSON.stringify({ tasks: nextTasks })
+            });
+            adminTasks = nextTasks;
+            renderAdminTasks(adminTasks);
+        };
+
+        async function getSetting(key) {
+            const data = await adminApi(`/settings/${key}`);
+            return data.value || {};
+        }
+
+        async function putSetting(key, value) {
+            await adminApi(`/settings/${key}`, {
+                method: 'PUT',
+                body: JSON.stringify(value)
+            });
+        }
+
+        window.loadSettings = async function() {
+            try {
+                const [botConfig, withdrawConfig, adConfig] = await Promise.all([
+                    getSetting('bot_config'),
+                    getSetting('withdraw_config'),
+                    getSetting('ad_config')
+                ]);
+
+                adminBotConfigCache = botConfig;
+                document.getElementById('setting-admin-bot-token').value = botConfig.adminBotToken || '';
+                document.getElementById('setting-admin-chat-id').value = botConfig.adminChatId || '';
+                document.getElementById('setting-referral-bot-token').value = botConfig.referralBotToken || '';
+                document.getElementById('setting-min-coins').value = withdrawConfig.minCoins || 50000;
+                document.getElementById('setting-usd-value').value = withdrawConfig.usdValue || 0.10;
+                withdrawOptionsData = Array.isArray(withdrawConfig.options) ? withdrawConfig.options : [];
+                withdrawOptionsData.sort((a, b) => (a.coins || 0) - (b.coins || 0));
+                renderAdminWithdrawOptions();
+                populateAdminAdConfigForm(adConfig);
+            } catch (error) {
+                const el = document.getElementById('settings-status');
+                el.innerText = `Error loading settings: ${error.message}`;
+                el.className = 'text-center mt-4 text-sm text-red-500';
+            }
+        };
+
+        window.saveBotConfig = async function() {
+            const value = {
+                adminBotToken: document.getElementById('setting-admin-bot-token').value.trim(),
+                adminChatId: document.getElementById('setting-admin-chat-id').value.trim(),
+                referralBotToken: document.getElementById('setting-referral-bot-token').value.trim(),
+                updatedAt: new Date().toISOString()
+            };
+
+            await putSetting('bot_config', value);
+            adminBotConfigCache = value;
+            const statusEl = document.getElementById('bot-config-status');
+            statusEl.innerText = '✅ Bot configuration saved!';
+            statusEl.className = 'text-sm text-green-600';
+        };
+
+        window.saveSettings = async function() {
+            const value = {
+                minCoins: parseInt(document.getElementById('setting-min-coins').value, 10) || 50000,
+                usdValue: parseFloat(document.getElementById('setting-usd-value').value) || 0.10,
+                options: withdrawOptionsData,
+                updatedAt: new Date().toISOString()
+            };
+
+            await putSetting('withdraw_config', value);
+            const status = document.getElementById('settings-status');
+            status.innerText = 'Settings saved successfully!';
+            status.className = 'text-center mt-4 text-sm text-green-500';
+        };
+
+        window.saveWithdrawOption = async function() {
+            const id = document.getElementById('wo-id').value.trim();
+            const label = document.getElementById('wo-label').value.trim();
+            const coins = parseInt(document.getElementById('wo-coins').value, 10);
+            const usdtAmount = parseFloat(document.getElementById('wo-usdt').value);
+            if (!id || !Number.isFinite(coins) || coins <= 0 || !Number.isFinite(usdtAmount) || usdtAmount <= 0) {
+                alert('Valid tier ID, coin amount, and USDT amount are required');
+                return;
+            }
+
+            const nextOptions = withdrawOptionsData.filter(item => item.id !== id);
+            nextOptions.push({ id, label, coins, usdtAmount, updatedAt: new Date().toISOString() });
+            withdrawOptionsData = nextOptions.sort((a, b) => a.coins - b.coins);
+            await window.saveSettings();
+            closeWithdrawOptionModal();
+            renderAdminWithdrawOptions();
+        };
+
+        window.deleteWithdrawOption = async function(optionId) {
+            if (!confirm('Are you sure you want to delete this withdrawal tier?')) return;
+            withdrawOptionsData = withdrawOptionsData.filter(item => item.id !== optionId);
+            await window.saveSettings();
+            renderAdminWithdrawOptions();
+        };
+
+        window.loadNotificationSettings = async function() {
+            try {
+                const data = await getSetting('notification_banner');
+                document.getElementById('notification-enabled').checked = Boolean(data.enabled);
+                document.getElementById('notification-title').value = data.title || '';
+                document.getElementById('notification-message').value = data.message || '';
+                document.getElementById('preview-title').innerText = data.title || 'Important Update';
+                document.getElementById('preview-message').innerText = data.message || 'New withdrawal options are now available!';
+            } catch (error) {
+                console.error(error);
+            }
+        };
+
+        window.saveNotificationSettings = async function() {
+            const value = {
+                enabled: document.getElementById('notification-enabled').checked,
+                title: document.getElementById('notification-title').value.trim() || 'Announcement',
+                message: document.getElementById('notification-message').value.trim(),
+                updatedAt: new Date().toISOString()
+            };
+            await putSetting('notification_banner', value);
+            document.getElementById('preview-title').innerText = value.title;
+            document.getElementById('preview-message').innerText = value.message || 'No message set';
+            document.getElementById('notification-status').innerHTML = '<span class="text-green-600">✅ Notification saved successfully!</span>';
+        };
+
+        window.loadFeaturedAppsSettings = async function() {
+            try {
+                const data = await getSetting('featured_apps');
+                document.getElementById('featured-apps-enabled').checked = Boolean(data.enabled);
+                adminFeaturedAppsData = Array.isArray(data.apps) ? data.apps : [];
+                renderAdminFeaturedApps();
+            } catch (error) {
+                console.error(error);
+            }
+        };
+
+        async function saveFeaturedAppsSetting() {
+            await putSetting('featured_apps', {
+                enabled: document.getElementById('featured-apps-enabled').checked,
+                apps: adminFeaturedAppsData,
+                updatedAt: new Date().toISOString()
+            });
+        }
+
+        window.openFeaturedAppModal = function(index = null) {
+            const current = index !== null ? adminFeaturedAppsData[index] : { icon: '🚀', name: '', description: '', link: '' };
+            const html = `
+                <div class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center" id="featured-app-modal" onclick="if(event.target===this)closeFeaturedAppModal()">
+                    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4">${index !== null ? 'Edit App' : 'Add Featured App'}</h3>
+                        <div class="space-y-3">
+                            <input type="text" id="app-icon" value="${window.escapeAttr(current.icon || '🚀')}" class="w-full border border-gray-300 rounded-lg p-3" placeholder="🚀" maxlength="2">
+                            <input type="text" id="app-name" value="${window.escapeAttr(current.name || '')}" class="w-full border border-gray-300 rounded-lg p-3" placeholder="App name">
+                            <input type="text" id="app-description" value="${window.escapeAttr(current.description || '')}" class="w-full border border-gray-300 rounded-lg p-3" placeholder="Description">
+                            <input type="text" id="app-link" value="${window.escapeAttr(current.link || '')}" class="w-full border border-gray-300 rounded-lg p-3" placeholder="https://t.me/example">
+                            <div class="flex space-x-3 pt-2">
+                                <button onclick="saveFeaturedApp(${index})" class="flex-1 px-4 py-3 bg-purple-600 text-white font-bold rounded-lg hover:bg-purple-700 transition">
+                                    <i class="fas fa-save mr-2"></i>${index !== null ? 'Update' : 'Add'} App
+                                </button>
+                                <button onclick="closeFeaturedAppModal()" class="px-4 py-3 bg-gray-200 text-gray-700 font-bold rounded-lg hover:bg-gray-300 transition">Cancel</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', html);
+        };
+
+        window.closeFeaturedAppModal = function() {
+            document.getElementById('featured-app-modal')?.remove();
+        };
+
+        window.saveFeaturedApp = async function(index) {
+            const app = {
+                icon: document.getElementById('app-icon').value.trim() || '🚀',
+                name: document.getElementById('app-name').value.trim(),
+                description: document.getElementById('app-description').value.trim(),
+                link: document.getElementById('app-link').value.trim()
+            };
+            if (!app.name || !app.link) {
+                alert('App name and link are required');
+                return;
+            }
+
+            if (index !== null) adminFeaturedAppsData[index] = app;
+            else adminFeaturedAppsData.push(app);
+
+            await saveFeaturedAppsSetting();
+            closeFeaturedAppModal();
+            renderAdminFeaturedApps();
+        };
+
+        window.editFeaturedApp = function(index) {
+            window.openFeaturedAppModal(index);
+        };
+
+        window.deleteFeaturedApp = async function(index) {
+            if (!confirm(`Delete "${adminFeaturedAppsData[index].name}"?`)) return;
+            adminFeaturedAppsData.splice(index, 1);
+            await saveFeaturedAppsSetting();
+            renderAdminFeaturedApps();
+        };
+
+        window.saveFeaturedAppsEnabled = async function() {
+            await saveFeaturedAppsSetting();
+        };
+
+        window.saveAdConfig = async function() {
+            const value = {
+                zoneId: document.getElementById('setting-ad-zone-id').value.trim(),
+                sdkName: document.getElementById('setting-ad-sdk-name').value.trim(),
+                rewardCoins: parseInt(document.getElementById('setting-ad-reward-coins').value, 10) || 50,
+                networkKey: document.getElementById('setting-ad-network').value.trim() || 'richads',
+                rewardedInterstitialEnabled: document.getElementById('setting-ad-interstitial-enabled').checked,
+                rewardedPopupEnabled: document.getElementById('setting-ad-popup-enabled').checked,
+                inAppEnabled: document.getElementById('setting-ad-inapp-enabled').checked,
+                inAppSettings: {
+                    frequency: parseInt(document.getElementById('setting-ad-frequency').value, 10) || 2,
+                    capping: parseFloat(document.getElementById('setting-ad-capping').value) || 0.1,
+                    interval: parseInt(document.getElementById('setting-ad-interval').value, 10) || 30,
+                    timeout: parseInt(document.getElementById('setting-ad-timeout').value, 10) || 5,
+                    everyPage: document.getElementById('setting-ad-every-page').checked
+                },
+                updatedAt: new Date().toISOString()
+            };
+            await putSetting('ad_config', value);
+            if (typeof renderAdConfigPreview === 'function') renderAdConfigPreview();
+            const statusEl = document.getElementById('ad-config-status');
+            statusEl.innerText = 'Ad configuration saved';
+            statusEl.className = 'text-sm text-green-600';
+        };
+
+        async function getReferralBotToken() {
+            if (adminBotConfigCache?.referralBotToken) {
+                return adminBotConfigCache.referralBotToken;
+            }
+            adminBotConfigCache = await getSetting('bot_config');
+            return adminBotConfigCache.referralBotToken || '';
+        }
+
+        window.openMessageModal = function(userId, userName) {
+            adminCurrentMessageUserId = userId;
+            adminCurrentMessageUserName = userName;
+            document.getElementById('msg-user-name').value = userName;
+            document.getElementById('msg-user-id').value = userId;
+            document.getElementById('msg-text').value = '';
+            document.getElementById('msg-status').innerText = '';
+            document.getElementById('send-message-modal').classList.remove('hidden');
+        };
+
+        window.closeMessageModal = function() {
+            adminCurrentMessageUserId = null;
+            adminCurrentMessageUserName = null;
+            document.getElementById('send-message-modal').classList.add('hidden');
+        };
+
+        window.sendMessageToUser = async function() {
+            const token = await getReferralBotToken();
+            const statusEl = document.getElementById('msg-status');
+            if (!token) {
+                statusEl.innerText = '❌ Referral bot token not configured.';
+                statusEl.className = 'text-sm text-red-600';
+                return;
+            }
+
+            const payload = {
+                chat_id: adminCurrentMessageUserId,
+                text: document.getElementById('msg-text').value.trim(),
+                parse_mode: 'HTML'
+            };
+
+            const buttons = getButtonsFromContainer('msg-buttons-container');
+            if (buttons.length) {
+                payload.reply_markup = { inline_keyboard: [buttons.map(button => ({ text: button.text, url: button.url }))] };
+            }
+
+            const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json();
+            if (!data.ok) {
+                throw new Error(data.description || 'Telegram send failed');
+            }
+
+            statusEl.innerText = '✅ Message sent successfully!';
+            statusEl.className = 'text-sm text-green-600';
+        };
+
+        window.openBroadcastModal = function() {
+            if (!adminUsersCache.length) {
+                alert('No users loaded yet.');
+                return;
+            }
+            document.getElementById('broadcast-user-count').value = `${adminUsersCache.length} users`;
+            document.getElementById('broadcast-msg-text').value = '';
+            document.getElementById('broadcast-status').innerText = '';
+            document.getElementById('broadcast-message-modal').classList.remove('hidden');
+        };
+
+        window.closeBroadcastModal = function() {
+            document.getElementById('broadcast-message-modal').classList.add('hidden');
+        };
+
+        window.sendBroadcastMessage = async function() {
+            const token = await getReferralBotToken();
+            const statusEl = document.getElementById('broadcast-status');
+            const messageText = document.getElementById('broadcast-msg-text').value.trim();
+            if (!token) {
+                statusEl.innerText = '❌ Referral bot token not configured.';
+                statusEl.className = 'mb-4 text-sm text-red-600';
+                return;
+            }
+            if (!messageText) {
+                statusEl.innerText = '⚠️ Please enter a message';
+                statusEl.className = 'mb-4 text-sm text-yellow-600';
+                return;
+            }
+
+            let sent = 0;
+            let failed = 0;
+            for (const user of adminUsersCache) {
+                try {
+                    await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            chat_id: user.id,
+                            text: messageText,
+                            parse_mode: 'HTML'
+                        })
+                    });
+                    sent++;
+                } catch (error) {
+                    failed++;
+                }
+            }
+            statusEl.innerText = `✅ Broadcast complete! Sent: ${sent}, Failed: ${failed}`;
+            statusEl.className = 'mb-4 text-sm text-green-600';
+        };
+
+        verifyAdminSession();
+    </script>
+</body>
+</html>
