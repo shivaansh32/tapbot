@@ -2,7 +2,8 @@ const express = require('express');
 const router = express.Router();
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const START_RESPONSE = 't.me/shivanshuahf_bot/tapandearn';
+const START_RESPONSE = 'Tap to start earning:';
+const START_URL = 'http://t.me/shivanshuahf_bot/tapandearn';
 
 router.post('/webhook', async (req, res) => {
   try {
@@ -26,7 +27,14 @@ router.post('/webhook', async (req, res) => {
         method: 'sendMessage',
         chat_id: message.chat.id,
         text: START_RESPONSE,
-        disable_web_page_preview: true
+        disable_web_page_preview: true,
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: 'Play ▶️', url: START_URL }
+            ]
+          ]
+        }
       });
     }
 
