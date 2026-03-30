@@ -7,6 +7,7 @@ const path = require('path');
 
 const gameRoutes = require('./routes/game');
 const adminRoutes = require('./routes/admin');
+const botRoutes = require('./routes/bot');
 const Setting = require('./models/Setting');
 
 const app = express();
@@ -57,6 +58,7 @@ app.use(express.static(path.join(__dirname, '../frontend')));
 // ─────────────────────────────────────────────
 app.use('/api', gameRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/bot', botRoutes);
 
 // Health check (no auth needed)
 app.get('/health', (req, res) => {
